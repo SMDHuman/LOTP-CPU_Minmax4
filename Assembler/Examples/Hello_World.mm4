@@ -1,0 +1,22 @@
+MOV R0 10
+
+OUT A R0
+SUB R0 1
+BRC NEZ -3
+
+mov r2 just_world
+mov pc r2
+
+OUT A 72
+OUT A 101
+OUT A 108
+OUT A 108
+OUT A 111
+just_world:
+OUT A 32
+OUT A 87
+OUT A 111
+OUT A 114
+OUT A 108
+OUT A 100
+
