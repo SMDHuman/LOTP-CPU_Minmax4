@@ -40,13 +40,14 @@ def main():
   conditions = ["CF", "EZ", "NCF", "NEZ"]
   ports = ["A", "B", "A_DIR", "B_DIR"]
 
+  # Find all branch labels
+  branch_later = []
   branch_labels = {}
   for token in tokens:
     if token.type == "BRANCH":
       label = token.word.upper()
       branch_labels[label] = None
 
-  branch_later = []
 
   byte_slice = ""
   for token in tokens:
@@ -92,6 +93,8 @@ def main():
     else:
       byte_slice = bits + byte_slice
   
+  #-----------------------------------------------------------------------------
+  # Replace branch labels with addresses
   for branch in branch_later:
     print(f"Branch: {branch[0]}, Label: {branch[1]}, Address: {branch_labels[branch[1]]}")
     ROM = ROM[:branch[0]+1] + bytearray([branch_labels[branch[1]]]) + ROM[branch[0]+2:]
