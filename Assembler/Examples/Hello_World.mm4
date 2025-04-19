@@ -1,23 +1,23 @@
 MOV R0 10
-
 OUT A R0
 SUB R0 1
 BRC NEZ -3
 
-mov r2 just_world
+mov r2 world
 mov pc r2
 
-OUT A 72
-OUT A 101
-OUT A 108
-OUT A 108
-OUT A 111
+text = "Hello World"
 
-just_world:
-OUT A 32
-OUT A 87
-OUT A 111
-OUT A 114
-OUT A 108
-OUT A 100
+OUT A text # 0
+OUT A text # 1
+OUT A text # 2
+OUT A text # 3
+OUT A text # 4
+OUT A text # 5
+world:
+OUT A text # 6
+OUT A text # 7
+OUT A text # 8
+OUT A text # 9
+OUT A text # 10
 

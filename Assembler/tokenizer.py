@@ -2,7 +2,7 @@ import re
 from typing import override
 
 #...
-#BLANK, WORD, VALUE, RAW, MACRO_START, MACRO_END, BRANCH, COMMENT, NL, STRING
+#BLANK, WORD, VALUE, COMMENT, NL
 class Token:
 	def __init__(self, line: int, type: str, word: str):
 		self.line: int = line
@@ -33,24 +33,10 @@ def Tokenizer(input_code: str) -> list[Token]:
 				if(re.match("[0-9]|-", char)):
 					current_token_type = "VALUE"
 					current_token_char += char
-				if(char == "<"):
-					tokens.append(Token(current_line, "MACRO_START", "<"))
-				if(char == ">"):
-					tokens.append(Token(current_line, "MACRO_END", ">"))
-				if(char == '"'):
-					current_token_type = "STRING"
 			#-------------------------------
 			case "COMMENT":
 				if(char == "\n"):
 					current_token_type = "BLANK"
-			#-------------------------------
-			case "STRING":
-				if(char == '"'):
-					tokens.append(Token(current_line, current_token_type, current_token_char))
-					current_token_type = "BLANK"
-					current_token_char = ""
-				else:
-					current_token_char += char
 			#-------------------------------
 			case "WORD":
 				if(re.match("[A-Z]|[a-z]|[0-9]|_", char)):
@@ -63,8 +49,6 @@ def Tokenizer(input_code: str) -> list[Token]:
 					tokens.append(Token(current_line, current_token_type, current_token_char))
 					current_token_char = ""
 					current_token_type = "BLANK"
-				if(char == ">"):
-					tokens.append(Token(current_line, "MACRO_END", ">"))
 			#-------------------------------
 			case "VALUE":
 				if(re.match("[0-9]|_|b|x|-", char)):

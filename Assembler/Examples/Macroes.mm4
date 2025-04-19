@@ -1,0 +1,21 @@
+<mov16 <reg> <value> 
+  mov reg value # 1 
+  mov reg value # 0>
+
+<add16 <reg> <value> 
+  mov r2 value # 1 
+  mov r2 value # 0
+  add reg r0>
+
+y = 4
+
+<'Hello_World.mm4'>
+
+<mask8 0xff>
+<mask16 0xffff>
+
+x = 4
+list = [5, x, 3, 2]
+
+and r0 mask8
+mov16 r1 mask16
