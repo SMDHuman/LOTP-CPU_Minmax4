@@ -8,7 +8,7 @@ from typing import override
 def parse_cmd_arguments() -> argparse.Namespace:
   parser = argparse.ArgumentParser(description='Minmax4ASM - Minmax4 Assembler')
   parser.add_argument('input', type=str, help='Input file path')
-  parser.add_argument('output', type=str, help='Output file path')
+  parser.add_argument('output', type=str, help='Output file path', default="-", nargs='?')
   parser.add_argument('-b', "--bytes", type=int, help='Length of the data bus in bytes')
   parser.add_argument('-d', "--debug", action='store_true', help='Enable debug mode')
   
@@ -25,15 +25,19 @@ def get_input_code(input_file: str) -> str:
 def output_rom(rom: bytearray, output_file: str) -> None:
   MAGIC = "MNMX"
   VERSION = 0x04
-  output_file = args.output
+  #...
+  if output_file == "-":
+    output_file = ".".join(args.input.split(".")[:-1])
+  #...
   with open(output_file, 'wb') as f:
     # Write the magic number and version
     f.write(MAGIC.encode())
     f.write(struct.pack('B', VERSION))
     f.write(BYTE_LENGHT.to_bytes(1, byteorder='little'))
     f.write(rom)
-  
+  #...
   print(f"Output file '{output_file}' created successfully.")
+
 #------------------------------------------------------------------------------
 class Token:
   def __init__(self, line: int, _type: str, word: str):
@@ -53,6 +57,7 @@ def tokenize_code(input_code: str, file_name: str = "main") -> list[Token]:
   current_token_type: str = "BLANK"
   current_token_char: str = ""
   current_line: int = 1
+  in_list: bool = False
   i = 0
   while(i < len(input_code)):
     char: str = input_code[i]
@@ -72,10 +77,12 @@ def tokenize_code(input_code: str, file_name: str = "main") -> list[Token]:
         if(char == '"'):
           current_token_type = "STRING_DOUBLE"
         if(char == "["):
+          in_list = True
           tokens.append(Token(current_line, "LIST_START", "["))
         if(char == "]"):
+          in_list = False
           tokens.append(Token(current_line, "LIST_END", "]"))
-        if(char == ","):
+        if(char == "," and not in_list):
           tokens.append(Token(current_line, "SEPARATOR", ","))
         if(char == "="):
           tokens.append(Token(current_line, "ASSIGN", "="))
@@ -237,19 +244,72 @@ def apply_macros(macros: list[list[Token]], tokens: list[Token]) -> list[Token]:
   #...
   return(tokens)
 
+def expect_token_type(token: Token, expected_type) -> bool:
+  if(type(expected_type) == str):
+    expected_type = [expected_type]
+  if(token.type not in expected_type):
+    print(f"Error: Expected token type '{expected_type}' but got '{token.type}' at line {token.line}.")
+    if(DEBUG_MODE):
+      print(f"Token: {token}")
+    sys.exit(1)
+    return(False)
+  return(True)
+
+#------------------------------------------------------------------------------
+def generate_bytes(tokens: list[Token]) -> bytearray:
+  # Constants
+  instructions = {"NOP":0 ,"MOV":1 ,"LOD":2 ,"STR":3 ,"ADD":4 ,"SUB":5 ,"AND":6 ,"OR":7 ,"XOR":8 ,"INV":9 ,"ROT":10 ,"BRC":11 ,"PSH":12 ,"POP":13 ,"IN":14 ,"OUT":15}
+  targets = {"PC": 0, "R0": 1, "R1": 2, "R2": 3}
+  regs = {"R0": 1, "R1": 2, "R2": 3}
+  conds = {"CF": 0, "EZ": 1, "NCF": 2, "NEZ": 3}
+  ports = {"A": 0, "B": 1, "C": 2, "D": 3}
+  constants = {}
+  #...
+  def eval(token: Token) -> int:
+    if(token.type == "VALUE"):
+      return(int(token.word, 0) & BYTE_MASK)
+    elif(token.type == "WORD"):
+      if(token.word in constants):
+        return(constants[token.word])
+      elif(token.word in targets):
+        return(targets[token.word])
+      elif(token.word in regs):
+        return(regs[token.word])
+      elif(token.word in ports):
+        return(ports[token.word])
+      elif(token.word in conds):
+        return(conds[token.word])
+      else:
+        print(f"Error: Unknown token '{token.word}' at line {token.line}.")
+        sys.exit(1)
+    elif(token.type == "STRING"):
+      if(len(token.word) == 1):
+        return(ord(token.word[0]))
+      else:
+        print(f"Error: Invalid string token '{token.word}' at line {token.line}.")
+        sys.exit(1)
+    else:
+      print(f"Error: Invalid token type '{token.type}' at line {token.line}.")
+      sys.exit(1)
+
+  #...
+  ROM = bytearray()
+
+
+  return(ROM)
+
 #------------------------------------------------------------------------------
 if __name__ == "__main__":
   args = parse_cmd_arguments()
-  
+  #...
   BYTE_LENGHT = args.bytes if args.bytes else 1
   BYTE_MASK = (1 << (BYTE_LENGHT * 8)) - 1
   DEBUG_MODE = args.debug
-
+  #...
   input_code = get_input_code(args.input)
   tokens = tokenize_code(input_code)
   macros, tokens = parse_macros(tokens)
   tokens = apply_macros(macros, tokens)
-    
   # remove repeation seperators
   i = 0
   while(i < len(tokens)-1):
@@ -257,18 +317,20 @@ if __name__ == "__main__":
       tokens.pop(i)
     else:
       i += 1
-  
+  print("-"*20)
+  print("Generating bytes...")
+  ROM = generate_bytes(tokens)
+  #...
   if(DEBUG_MODE):
     print("Tokens:")
     for token in tokens:
       print(token)
+    #...
+    for token in tokens:
+      if(token.type == "SEPARATOR"):
+        print()
+      else:
+        print(token.word, end=" ")
 
-  for token in tokens:
-    if(token.type == "SEPARATOR"):
-      print()
-    else:
-      print(token.word, end=" ")
-
-  ROM: bytearray = b''
 
   output_rom(ROM, args.output)

@@ -33,4 +33,4 @@ A Simple 8 bit RISC-like CPU with expandable data bus. It executes every instruc
 | target | `Program Counter` | `R0` | `R1` | `R2` |
 | registers | `Immediate` | `R0` | `R1` | `R2` |
 | condition | `Carry Flag` | `R0 == 0` | `!Carry Flag` | `R0 != 0` |
-| port | `A` | `B` | `A Directions` | `B Directions` |
+| port | `A` | `B` | `C` | `D` |
