@@ -139,8 +139,9 @@ def tokenize_code(input_code: str, file_name: str = "main") -> list[Token]:
     #...
     if(char == "\n"):
       current_line += 1
-      if(tokens[-1].type != "SEPARATOR"):
-        tokens.append(Token(current_line, "SEPARATOR", ","))
+      if(len(tokens) > 0):
+        if(tokens[-1].type != "SEPARATOR"):
+          tokens.append(Token(current_line, "SEPARATOR", ","))
     #...
     i += 1
   for token in tokens:
@@ -263,39 +264,213 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
   regs = {"R0": 1, "R1": 2, "R2": 3}
   conds = {"CF": 0, "EZ": 1, "NCF": 2, "NEZ": 3}
   ports = {"A": 0, "B": 1, "C": 2, "D": 3}
-  constants = {}
+  constants: dict[str, list[int]] = {}
   #...
-  def eval(token: Token) -> int:
+  def error(msg: str) -> None:
+    print(f"Error: {msg}")
+    print([hex(byte) for byte in ROM])
+    sys.exit(1)
+
+  #...
+  def split_bytes(value: int, size = None) -> list[int]:
+    byte_list = []
+    if(value == 0):
+      byte_list.append(0)
+    roundup = lambda x: int(x) if x == int(x) else int(x)+1
+    for i in range(roundup(value.bit_length()/8)):
+      byte_list.append((value>>(8*i)) & 0xFF)
+    if(size != None):
+      if(len(byte_list) > size):
+        error(f"Value {value} is too large for {size} bytes.")
+      while(len(byte_list) < size):
+        byte_list.append(0)
+    return(byte_list)
+  #...
+  def expect_token_type(token: Token, expected_type: str|list[str], raise_error: bool = True) -> bool:
+    if(type(expected_type) == str):
+      expected_type = [expected_type]
+    if(token.type not in expected_type):
+      if(raise_error):
+        if(DEBUG_MODE): print(f"Token: {token}")
+        error(f"Expected token type '{expected_type}' but got '{token.type}' at line {token.line}.")
+      return(False)
+    return(True)
+  #...
+  def eval_values(token: Token) -> list[int]:
+    nonlocal tokens, i
+    token_i = tokens.index(token)
+    diff = token_i - i
+
+    values = []
+
     if(token.type == "VALUE"):
-      return(int(token.word, 0) & BYTE_MASK)
+      i = token_i + 1
+      values += split_bytes(int(token.word, 0))
     elif(token.type == "WORD"):
       if(token.word in constants):
-        return(constants[token.word])
-      elif(token.word in targets):
-        return(targets[token.word])
-      elif(token.word in regs):
-        return(regs[token.word])
-      elif(token.word in ports):
-        return(ports[token.word])
-      elif(token.word in conds):
-        return(conds[token.word])
+        i = token_i + 1
+        values += constants[token.word]
       else:
-        print(f"Error: Unknown token '{token.word}' at line {token.line}.")
-        sys.exit(1)
+        error(f"Unknown constant '{token.word}' at line {token.line}.")
     elif(token.type == "STRING"):
-      if(len(token.word) == 1):
-        return(ord(token.word[0]))
-      else:
-        print(f"Error: Invalid string token '{token.word}' at line {token.line}.")
-        sys.exit(1)
+      i = token_i + 1
+      values += [ord(c) for c in token.word]
+    elif(token.type == "LIST_START"):
+      token_i += 1
+      while(tokens[token_i].type != "LIST_END"):
+        if(token_i >= len(tokens)):
+          error("Unmatched '[' at line {tokens[i].line}.")
+        values += eval_values(tokens[token_i])[0]
+        token_i += 1
+      i = token_i
     else:
-      print(f"Error: Invalid token type '{token.type}' at line {token.line}.")
-      sys.exit(1)
-
-  #...
+      error(f"Unknown token type '{token.type}' at line {token.line}.")
+    
+    if(tokens[i].type == "INDEX"):
+      i += 1
+      if(i >= len(tokens)):
+        error("Unmatched '#' at line {tokens[i].line}.")
+      index = eval_values(tokens[i])[0]
+      return([values[index]])
+    else:
+      return(values)
+    
+  def eval_target(token: Token) -> int:
+    if(token.word.upper() in targets):
+      return(targets[token.word.upper()])
+    else:
+      error(f"Unknown target '{token.word}' at line {token.line}.")
+  def eval_regs(token: Token) -> int:
+    if(token.word.upper() in regs):
+      return(regs[token.word.upper()])
+    else:
+      error(f"Unknown register '{token.word}' at line {token.line}.")
+  def eval_port(token: Token) -> int:
+    if(token.word.upper() in ports):
+      return(ports[token.word.upper()])
+    else:
+      error(f"Unknown port '{token.word}' at line {token.line}.")
+  def eval_condition(token: Token) -> int:
+    if(token.word.upper() in conds):
+      return(conds[token.word.upper()])
+    else:
+      error(f"Unknown condition '{token.word}' at line {token.line}.")
+  #-----------------------------------------------------------
+  # Generate the ROM
+  #-----------------------------------------------------------
   ROM = bytearray()
+  # Loop through the tokens and generate the ROM
+  i = 0
+  while(i < len(tokens)):
+    #...
+    if(expect_token_type(tokens[i], "SEPARATOR", raise_error=False)):
+      i += 1
+      continue
+    if(expect_token_type(tokens[i], "BRANCH", raise_error=False)):
+      constants[tokens[i].word] = split_bytes(len(ROM), BYTE_LENGHT)
+      i += 1
+      continue
+    #---------------------------------------
+    expect_token_type(tokens[i], "WORD")
+    if(tokens[i+1].type == "ASSIGN"):
+      const_name = tokens[i].word
+      constants[const_name] = eval_values(tokens[i+2])
 
+    if(tokens[i].word.upper() in instructions):
+      match tokens[i].word.upper():
+        case "NOP":
+          ROM.append(instructions["NOP"])
+          i += 1
+        case "MOV" | "ADD" | "SUB" | "AND" | "OR" | "XOR" | "ROT":
+          byte = instructions[tokens[i].word.upper()]
+          values = None
+          byte |= (eval_target(tokens[i+1]) << 4)
+          if(tokens[i+2].word.upper() in regs):
+            byte |= (regs[tokens[i+2].word.upper()] << 6)
+            i += 3
+          else:
+            values = eval_values(tokens[i+2])
 
+          if(values != None):
+            if(len(values) > BYTE_LENGHT):
+              error(f"Value {values} is too large for {BYTE_LENGHT} bytes.")
+            for value in values[::-1]:        
+              ROM.append(byte)
+              ROM.append(value)
+          else:
+            ROM.append(byte)
+        case "LOD" | "STR":
+          byte = instructions[tokens[i].word.upper()]
+          values = [0]
+          byte |= (eval_target(tokens[i+1]) << 4)
+          byte |= (eval_regs(tokens[i+2]) << 6)
+          if(tokens[i+3].type != "SEPARATOR"):
+            values = eval_values(tokens[i+3])
+          else:
+            i += 3
+          if(len(values) > BYTE_LENGHT):
+            error(f"Value {values} is too large for {BYTE_LENGHT} bytes.")
+          for value in values[::-1]:        
+            ROM.append(byte)
+            ROM.append(value)
+        case "BRC":
+          byte = instructions[tokens[i].word.upper()]
+          values = None
+          byte |= (eval_condition(tokens[i+1]) << 4)
+          if(tokens[i+2].word.upper() in regs):
+            byte |= (regs[tokens[i+2].word.upper()] << 6)
+            i += 3
+          else:
+            values = eval_values(tokens[i+2])
+
+          if(values != None):
+            ROM.append(byte)
+            ROM.append(value[0])
+          else:
+            ROM.append(byte)
+        case "PSH":
+          byte = instructions[tokens[i].word.upper()]
+          values = None
+          byte |= (eval_regs(tokens[i+1]) << 6)
+          i += 2
+          ROM.append(byte)
+        case "INV"|"POP":
+          byte = instructions[tokens[i].word.upper()]
+          values = None
+          byte |= (eval_target(tokens[i+1]) << 4)
+          i += 2
+          ROM.append(byte)
+        case "IN":
+          byte = instructions[tokens[i].word.upper()]
+          values = None
+          byte |= (eval_target(tokens[i+1]) << 4)
+          byte |= (eval_port(tokens[i+2]) << 6)
+          i += 3
+          ROM.append(byte)
+        case "OUT":
+          byte = instructions[tokens[i].word.upper()]
+          values = None
+          byte |= (eval_port(tokens[i+1]) << 4)
+          if(tokens[i+2].word.upper() in regs):
+            byte |= (regs[tokens[i+2].word.upper()] << 6)
+            i += 3
+          else:
+            values = eval_values(tokens[i+2])
+
+          if(values != None):
+            if(len(values) > BYTE_LENGHT):
+              error(f"Value {values} is too large for {BYTE_LENGHT} bytes.")
+            for value in values[::-1]:        
+              ROM.append(byte)
+              ROM.append(value)
+          else:
+            ROM.append(byte)
+        case _:
+          i += 1
+          
+    else:
+      i += 1
+  print(constants)
   return(ROM)
 
 #------------------------------------------------------------------------------
@@ -311,15 +486,8 @@ if __name__ == "__main__":
   macros, tokens = parse_macros(tokens)
   tokens = apply_macros(macros, tokens)
   # remove repeation seperators
-  i = 0
-  while(i < len(tokens)-1):
-    if(tokens[i].type == "SEPARATOR" and tokens[i+1].type == "SEPARATOR"):
-      tokens.pop(i)
-    else:
-      i += 1
-  print("-"*20)
-  print("Generating bytes...")
-  ROM = generate_bytes(tokens)
+  tokens.insert(0, Token(0, "SEPARATOR", ","))
+  tokens = [tokens[i] for i in range(1, len(tokens)) if not (tokens[i].type == "SEPARATOR" and tokens[i-1].type == "SEPARATOR")]
   #...
   if(DEBUG_MODE):
     print("Tokens:")
@@ -332,5 +500,7 @@ if __name__ == "__main__":
       else:
         print(token.word, end=" ")
 
+  #...
+  ROM = generate_bytes(tokens)
 
   output_rom(ROM, args.output)

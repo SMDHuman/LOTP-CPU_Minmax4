@@ -1,0 +1,6 @@
+x = 5
+y = 0x0102
+mov r0 x
+mov r1 y
+
+add r1 r2

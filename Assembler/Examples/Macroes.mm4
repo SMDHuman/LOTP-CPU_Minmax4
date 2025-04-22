@@ -7,15 +7,32 @@
   mov r2 value # 0
   add reg r0>
 
-y = 4
-
-<'Hello_World.mm4'>
+;<'Hello_World.mm4'>
 
 <mask8 0xff>
 <mask16 0xffff>
 
-x = 4
-list = [5, x, 3, 2]
+y = 4
+x = 5
+z = "Hello" # 3
+a = "abc"
+
+there:
+
+mov r0 r1
+mov r1 0xfcff #1
+
+lod r0 r1
+lod r0 r1 y
 
 and r0 mask8
-mov16 r1 mask16
+mov r1 mask16
+
+mov r0 there
+mov pc r0
+
+; TODO fix forward branch referance
+mov r0 here
+mov pc r0
+
+here:
