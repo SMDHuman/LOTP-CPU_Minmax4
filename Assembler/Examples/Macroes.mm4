@@ -19,8 +19,8 @@ a = "abc"
 
 there:
 
-mov r0 r1
 mov r1 0xfcff #1
+mov r0 r1
 
 lod r0 r1
 lod r0 r1 y
@@ -31,8 +31,7 @@ mov r1 mask16
 mov r0 there
 mov pc r0
 
-; TODO fix forward branch referance
 mov r0 here
-mov pc r0
+;mov pc r0
 
-here:
+here: 
