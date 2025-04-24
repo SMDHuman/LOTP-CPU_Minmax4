@@ -282,7 +282,8 @@ def main():
       print(f"Instruction: {hex(instruction)}, Arg1: {hex(arg1)}, Arg2: {hex(arg2)}")
       print(f"PC: {hex(reg_pc)}, R0: {hex(reg_r0)}, R1: {hex(reg_r1)}, R2: {hex(reg_r2)}, Carry: {hex(carry_flag)}, Stack: {[hex(x) for x in stack]}")
       print(f"Port A: {hex(port_A)}, Port B: {hex(port_B)}, Port A DIR: {hex(port_A_DIR)}, Port B DIR: {hex(port_B_DIR)}")
-  #print("ROM: ", [hex(x) for x in ROM])
+      #print("ROM: ", [hex(x) for x in ROM])
+      input("Press Enter to continue...")
 
 if( __name__ == "__main__"):
   main()

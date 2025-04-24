@@ -2,11 +2,16 @@
 jmp _start
 
 text: "Hello World"
-text_len = 11
+text_len: nop
 
 read_index: nop
 
 _start:
+  mov r0 text_len
+  mov r1 text
+  sub r0 r1
+  set text_len r0
+
     mov r0 text
     get r1 read_index
     add r0 r1
@@ -14,7 +19,7 @@ _start:
     out a r0
     add r1 1
     set read_index r1
-    mov r0 text_len
+    get r0 text_len
     sub r0 r1
     jmpz end
     jmp _start

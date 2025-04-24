@@ -198,51 +198,35 @@ def parse_macros(tokens: list[Token]) -> tuple[list[list[Token]], list[Token]]:
 def apply_macros(macros: list[list[Token]], tokens: list[Token]) -> list[Token]:
   #---------------------------------------
   # Add the macros to the new tokens list
-  for macro in macros:
-    if(len(macro) == 0):
-      continue
-    if(macro[0].type == "WORD"):
-      #...
-      if(macro[1].type == "MACRO_ARG"):
-        # Find the start of the function macro in the new tokens list
-        for i, token in enumerate(tokens):
-          macro_args = {}
-          macro_start = -1
-          origin_line = 0
-          if(token.word == macro[0].word):
-            macro_start = i
-            origin_line = token.line
-            for j in range(1, len(macro)):
-              if(macro[j].type == "MACRO_ARG"):
-                macro_args[macro[j].word] = tokens[i+j]
-              else:
-                break
-            if(macro_start == -1):
-              continue
-            # Remove the current line before replacement 
-            for i in range(len(macro_args) + 1):
-              tokens.pop(macro_start)
-            # Replace the function macro arguments with the corresponding tokens
-            for j in range(len(macro_args) + 1, len(macro)):
-              i = j - len(macro_args) - 1
-              tokens.insert(macro_start + i, macro[j])
-              tokens[macro_start + i].line = origin_line
-              if(macro[j].word in macro_args):
-                tokens[macro_start + i].type = macro_args[macro[j].word].type
-                tokens[macro_start + i].word = macro_args[macro[j].word].word
-        
-      #...
-      else:
-        for i, token in enumerate(tokens):
-          if(token.word == macro[0].word):
-            tokens[i].type = macro[1].type
-            tokens[i].word = macro[1].word
-            for j in range(2, len(macro)):
-              tokens.insert(i+j-1, macro[j])
-              tokens[i+j-1].line = token.line
+  # TODO: FIX THIS TO WORK WITH MACRO ARGUMENTS
+  new_tokens = []
+  i = 0
+  while(i < len(tokens)):
+    is_macro = False
+    print(i, tokens[i])
+    for macro in macros:
+      if(tokens[i].word == macro[0].word):
+        is_macro = True
+        macro_args = {}
+        macro_tokens = []
+        for j in range(1, len(macro)):
+          if(macro[j].type == "MACRO_ARG"):
+            macro_args[macro[j].word] = tokens[i+j]
+          elif(macro[j].word in macro_args):
+            macro_tokens.append(macro_args[macro[j].word])
+          else:
+            macro_tokens.append(macro[j])
+        print("----")
+        print(macro_tokens)
+        macro_tokens = apply_macros(macros, macro_tokens)
+        new_tokens += macro_tokens
+        i += len(macro_args)
+    if(not is_macro):
+      new_tokens.append(tokens[i])
+    i += 1
   #---------------------------------------
   #...
-  return(tokens)
+  return(new_tokens)
 
 #------------------------------------------------------------------------------
 def generate_bytes(tokens: list[Token]) -> bytearray:
