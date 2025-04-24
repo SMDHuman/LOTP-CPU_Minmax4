@@ -1,0 +1,26 @@
+;r0, r1: numbers, r2: swap and jump
+
+mov r0 1
+
+loop:
+  ; Output value and add two values
+    out A r1
+    add r0 r1
+  ; end program if carry flag true
+    jmp_if_cf end
+  ; swap r0 and r1
+    mov r2 r0
+    mov r0 r1
+    mov r1 r2
+  ; Jump back 
+  jmp loop
+end:
+
+<jmp_if_cf <where>
+  mov r2 where
+  brc cf r2
+>
+<jmp <where>
+  mov r2 where
+  mov pc r2
+>

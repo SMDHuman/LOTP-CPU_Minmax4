@@ -204,11 +204,11 @@ def apply_macros(macros: list[list[Token]], tokens: list[Token]) -> list[Token]:
     if(macro[0].type == "WORD"):
       #...
       if(macro[1].type == "MACRO_ARG"):
-        macro_args = {}
-        macro_start = -1
-        origin_line = 0
         # Find the start of the function macro in the new tokens list
         for i, token in enumerate(tokens):
+          macro_args = {}
+          macro_start = -1
+          origin_line = 0
           if(token.word == macro[0].word):
             macro_start = i
             origin_line = token.line
@@ -217,21 +217,20 @@ def apply_macros(macros: list[list[Token]], tokens: list[Token]) -> list[Token]:
                 macro_args[macro[j].word] = tokens[i+j]
               else:
                 break
-        if(macro_start == -1):
-          continue
-        # Remove the current line before replacement 
-        for i in range(len(macro_args) + 1):
-          tokens.pop(macro_start)
-        # Replace the function macro arguments with the corresponding tokens
-        for j in range(len(macro_args) + 1, len(macro)):
-          i = j - len(macro_args) - 1
-          tokens.insert(macro_start + i, macro[j])
-          tokens[macro_start + i].line = origin_line
-          if(macro[j].word in macro_args):
-            tokens[macro_start + i].type = macro_args[macro[j].word].type
-            tokens[macro_start + i].word = macro_args[macro[j].word].word
+            if(macro_start == -1):
+              continue
+            # Remove the current line before replacement 
+            for i in range(len(macro_args) + 1):
+              tokens.pop(macro_start)
+            # Replace the function macro arguments with the corresponding tokens
+            for j in range(len(macro_args) + 1, len(macro)):
+              i = j - len(macro_args) - 1
+              tokens.insert(macro_start + i, macro[j])
+              tokens[macro_start + i].line = origin_line
+              if(macro[j].word in macro_args):
+                tokens[macro_start + i].type = macro_args[macro[j].word].type
+                tokens[macro_start + i].word = macro_args[macro[j].word].word
         
-        print(macro_args, macro_start)
       #...
       else:
         for i, token in enumerate(tokens):
@@ -400,6 +399,10 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
           tokens.next()
       else:
         tokens.next()
+    else:
+      values = eval_values(tokens)
+      for value in values:
+        ROM.append(value)
   #---------------------------------------
   # Fill the branches with the correct values
   for branch in branches_fill_later:

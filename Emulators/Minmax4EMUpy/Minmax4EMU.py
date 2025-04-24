@@ -7,18 +7,16 @@ def main():
   parser.add_argument('-d', "--debug", action='store_true', help='Enable debug mode')
   parser.add_argument('-p', "--print_out", action='store_true', help='Print the output')
   args = parser.parse_args()
-
-  
-
+  #...
   input_file = args.input
   if not os.path.isfile(input_file):
     print(f"Error: File '{input_file}' not found.")
     sys.exit(1)
-  
+  #...
   magic = "MNMX"
   version = 0x04
   byte_length = 0
-  ROM: bytearray = b''
+  ROM: bytearray = bytearray(0)
   with open(input_file, 'rb') as f:
     header = f.read(6)
     if header[:4] != magic.encode():
@@ -34,12 +32,11 @@ def main():
   
     # Read the rest of the file and process it
     ROM += f.read()
-
+  #...
   byte_mask = (1 << (byte_length * 8)) - 1
-
+  ROM += bytearray([0x00] * (byte_mask - len(ROM)))  # Pad with zeros if needed
   print("Ready to process the input data...")
-  print(ROM)
-
+  if(args.debug): print("ROM: ", [hex(x) for x in ROM])
   #----------------------------------------------------------------------------
   # Initialize registers and flags
   reg_pc = 0x0000
@@ -52,7 +49,7 @@ def main():
   port_A_DIR = 0x00
   port_B_DIR = 0x00
   stack = []
-  RAM = bytearray(byte_mask)
+  #RAM = bytearray(byte_mask)
 
   def set_target(target, value):
     nonlocal reg_pc, reg_r0, reg_r1, reg_r2
@@ -141,12 +138,12 @@ def main():
       #---------------------------------------------------------------
       # LOD
       case 0x2:
-        set_target(arg1, RAM[get_register(arg2) + ROM[reg_pc]])
+        set_target(arg1, ROM[get_register(arg2) + ROM[reg_pc]])
         reg_pc = (reg_pc+1) & byte_mask
       #---------------------------------------------------------------
       # STR
       case 0x3:
-        RAM[get_register(arg2) + ROM[reg_pc]] = get_register(arg1)
+        ROM[get_register(arg2) + ROM[reg_pc]] = get_register(arg1)
         reg_pc = (reg_pc+1) & byte_mask
       #---------------------------------------------------------------
       # ADD
@@ -285,5 +282,7 @@ def main():
       print(f"Instruction: {hex(instruction)}, Arg1: {hex(arg1)}, Arg2: {hex(arg2)}")
       print(f"PC: {hex(reg_pc)}, R0: {hex(reg_r0)}, R1: {hex(reg_r1)}, R2: {hex(reg_r2)}, Carry: {hex(carry_flag)}, Stack: {[hex(x) for x in stack]}")
       print(f"Port A: {hex(port_A)}, Port B: {hex(port_B)}, Port A DIR: {hex(port_A_DIR)}, Port B DIR: {hex(port_B_DIR)}")
+  #print("ROM: ", [hex(x) for x in ROM])
+
 if( __name__ == "__main__"):
   main()
