@@ -1,0 +1,10 @@
+<sub_call <sub_name>
+  mov r2 here
+  psh r2
+  mov r2 sub_name
+  mov pc r2
+  here:
+>
+<sub_return 
+  pop pc
+>

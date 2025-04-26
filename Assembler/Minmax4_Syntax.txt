@@ -27,7 +27,7 @@
 
 ; Same thing can used with strings and lists
 'constant = "hello"'
-'constant = {72, 101, 108, 108, 111}'
+'constant = [72 101, 108, 108, 111]'
 'constant # 2' == 'l'
 
 ; Macroes interpreted before the code. All macroes formated with 

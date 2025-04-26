@@ -1,0 +1,43 @@
+
+
+<'subcall.mm4'>
+<'stdmac.mm4'>
+
+;Skip that part of memory
+jump memvar_skip
+;-----------------------------------------
+
+<load_u8 <reg> <var>
+  mov reg 0
+  mov r2 var
+  lod reg r2
+>
+
+;
+<load_u16 <reg> <var>
+  mov reg 0
+  mov r2 var
+  lod reg r2 1
+  lod reg r2
+>
+
+_load_u16:
+  mov 
+
+
+
+
+
+
+
+
+
+;---------------------------------------
+; Variables
+<memvar_u8 <name>
+name: nop>
+<memvar_u16 <name>
+name: nop, nop>
+
+
+land memvar_skip

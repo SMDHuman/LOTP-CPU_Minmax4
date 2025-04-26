@@ -152,6 +152,7 @@ def parse_macros(tokens: list[Token]) -> tuple[list[list[Token]], list[Token]]:
   macros = []
   current_macro = []
   new_tokens = []
+  include_macros = []
   macro_start = False
   macro_arg = False
   # Loop through the tokens and find macros
@@ -167,18 +168,21 @@ def parse_macros(tokens: list[Token]) -> tuple[list[list[Token]], list[Token]]:
         macro_arg = True
       # Include another file in here and tokenize it
       elif(token.type == "STRING"):
-        current_path = "\\".join(args.input.split("\\")[:-1]) + "\\"
-        code = get_input_code(current_path+token.word)
-        include_tokens = tokenize_code(code, token.word)
-        include_macros, include_tokens = parse_macros(include_tokens)
-        macros += include_macros
-        # Add the tokens to the new tokens list
-        for i_token in include_tokens:
-          new_tokens.append(i_token)
+        if(token.word not in include_macros):
+          include_macros.append(token.word)
+          current_path = "\\".join(args.input.split("\\")[:-1]) + "\\"
+          code = get_input_code(current_path+token.word)
+          include_tokens = tokenize_code(code, token.word)
+          include_macros, include_tokens = parse_macros(include_tokens)
+          macros += include_macros
+          # Add the tokens to the new tokens list
+          for i_token in include_tokens:
+            new_tokens.append(i_token)
       elif token.type == "MACRO_END":
         macro_start = False
-        macros.append(current_macro)
-        current_macro = []
+        if(len(current_macro) > 0):
+          macros.append(current_macro)
+          current_macro = []
       else:
         current_macro.append(token)
     else:
@@ -198,32 +202,35 @@ def parse_macros(tokens: list[Token]) -> tuple[list[list[Token]], list[Token]]:
 def apply_macros(macros: list[list[Token]], tokens: list[Token]) -> list[Token]:
   #---------------------------------------
   # Add the macros to the new tokens list
-  # TODO: FIX THIS TO WORK WITH MACRO ARGUMENTS
+  #---------------------------------------
+  # Reformat the macros to a dictionary for easier access
+  macros_dict = {}
+  for macro in macros:
+    macros_dict[macro[0].word] = macro[1:]
+  #---------------------------------------
   new_tokens = []
   i = 0
   while(i < len(tokens)):
-    is_macro = False
-    print(i, tokens[i])
-    for macro in macros:
-      if(tokens[i].word == macro[0].word):
-        is_macro = True
-        macro_args = {}
-        macro_tokens = []
-        for j in range(1, len(macro)):
-          if(macro[j].type == "MACRO_ARG"):
-            macro_args[macro[j].word] = tokens[i+j]
-          elif(macro[j].word in macro_args):
-            macro_tokens.append(macro_args[macro[j].word])
-          else:
-            macro_tokens.append(macro[j])
-        print("----")
-        print(macro_tokens)
-        macro_tokens = apply_macros(macros, macro_tokens)
-        new_tokens += macro_tokens
-        i += len(macro_args)
-    if(not is_macro):
-      new_tokens.append(tokens[i])
+    token = tokens[i]
+    if(token.type == "WORD" and token.word in macros_dict):
+      # Add the macro to the new tokens list
+      macro_args = {}
+      applied_tokens = []
+      for j, macro_token in enumerate(macros_dict[token.word]):
+        if(macro_token.type == "MACRO_ARG"):
+          macro_args[macro_token.word] = tokens[i+j+1]
+        elif(macro_token.word in macro_args):
+          new_token = macro_args[macro_token.word]
+          applied_tokens.append(Token(token.line, macro_token.type, new_token.word))
+        else:
+          applied_tokens.append(Token(token.line, macro_token.type, macro_token.word))
+      new_tokens += apply_macros(macros, applied_tokens)
+      i += len(macro_args)
+    else:
+      new_tokens.append(token)
     i += 1
+
+    
   #---------------------------------------
   #...
   return(new_tokens)
@@ -331,7 +338,6 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
   tokens :Token_Reader = Token_Reader(tokens)
   ROM = bytearray()
   # Loop through the tokens and generate the ROM
-  i = 0
   while(tokens.current() != None):
     #---------------------------------------
     if(tokens.current().type == "SEPARATOR"):
@@ -373,10 +379,14 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
                 values = eval_values(tokens)
           # Put the values in the byte array
           if(values):
-            for i in range(min(len(values), BYTE_LENGHT)):
-              value = values[::-1][i]        
+            if(header.word.upper() in ["MOV", "OUT"]):
+              for i in range(min(len(values), BYTE_LENGHT)):
+                value = values[::-1][i]        
+                ROM.append(byte)
+                ROM.append(value)
+            else:
               ROM.append(byte)
-              ROM.append(value)
+              ROM.append(values[0])
           else:
             ROM.append(byte)
         else:
@@ -437,6 +447,8 @@ if __name__ == "__main__":
     for token in tokens:
       if(token.type == "SEPARATOR"):
         print()
+      elif(token.type == "BRANCH"):
+        print(token.word, end=":")
       else:
         print(token.word, end=" ")
 

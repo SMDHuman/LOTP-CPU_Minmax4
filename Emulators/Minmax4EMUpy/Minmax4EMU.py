@@ -6,6 +6,7 @@ def main():
   parser.add_argument('input', type=str, help='Input file path')
   parser.add_argument('-d', "--debug", action='store_true', help='Enable debug mode')
   parser.add_argument('-p', "--print_out", action='store_true', help='Print the output')
+  parser.add_argument('-m', "--mem_print", help='Print sections of memory', type=str)
   args = parser.parse_args()
   #...
   input_file = args.input
@@ -49,6 +50,7 @@ def main():
   port_A_DIR = 0x00
   port_B_DIR = 0x00
   stack = []
+  instructions = ["NOP", "MOV", "LOD", "STR", "ADD", "SUB", "AND", "OR", "XOR", "INV", "ROT", "BRC", "PSH", "POP", "IN", "OUT"]
   #RAM = bytearray(byte_mask)
 
   def set_target(target, value):
@@ -138,12 +140,12 @@ def main():
       #---------------------------------------------------------------
       # LOD
       case 0x2:
-        set_target(arg1, ROM[get_register(arg2) + ROM[reg_pc]])
+        push_target(arg1, ROM[get_register(arg2) + ROM[reg_pc]])
         reg_pc = (reg_pc+1) & byte_mask
       #---------------------------------------------------------------
       # STR
       case 0x3:
-        ROM[get_register(arg2) + ROM[reg_pc]] = get_register(arg1)
+        ROM[get_register(arg2) + ROM[reg_pc]] = get_register(arg1) & 0xFF
         reg_pc = (reg_pc+1) & byte_mask
       #---------------------------------------------------------------
       # ADD
@@ -279,11 +281,24 @@ def main():
     # Print the final state of the registers and flags
     if(args.debug):
       print("-" * 40)
-      print(f"Instruction: {hex(instruction)}, Arg1: {hex(arg1)}, Arg2: {hex(arg2)}")
+      print(f"Instruction: {instructions[instruction]}, Arg1: {hex(arg1)}, Arg2: {hex(arg2)}")
       print(f"PC: {hex(reg_pc)}, R0: {hex(reg_r0)}, R1: {hex(reg_r1)}, R2: {hex(reg_r2)}, Carry: {hex(carry_flag)}, Stack: {[hex(x) for x in stack]}")
       print(f"Port A: {hex(port_A)}, Port B: {hex(port_B)}, Port A DIR: {hex(port_A_DIR)}, Port B DIR: {hex(port_B_DIR)}")
       #print("ROM: ", [hex(x) for x in ROM])
       input("Press Enter to continue...")
+  
+  # Print the final state of the registers and flags
+  print("-" * 40)
+  print("Final State:")
+  print(f"PC: {hex(reg_pc)}, R0: {hex(reg_r0)}, R1: {hex(reg_r1)}, R2: {hex(reg_r2)}, Carry: {hex(carry_flag)}, Stack: {[hex(x) for x in stack]}")
+  print(f"Port A: {hex(port_A)}, Port B: {hex(port_B)}, Port A DIR: {hex(port_A_DIR)}, Port B DIR: {hex(port_B_DIR)}")
+  if(args.mem_print):
+    start, end = args.mem_print.split(":")
+    start = int(start, 0)
+    end = int(end, 0)
+    print("Memory Dump:")
+    for i in range(start, end + 1):
+      print(f"0x{i:02X}: {hex(ROM[i])}")
 
 if( __name__ == "__main__"):
   main()

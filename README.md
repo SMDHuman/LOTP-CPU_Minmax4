@@ -3,10 +3,12 @@ A Simple 8 bit RISC-like CPU with expandable data bus. It executes every instruc
 
 ## Instructions
 
-| Layout| Opcode | Arg A | Arg B | Extra Data Byte |
-|------|--------|-----------|--|------------|
-|[start, end]|  [0:3]      | [4:5]     | [6:7] | [8:15]  |
+### Byte Layout
+| Opcode | Arg A | Arg B | Extra Data Byte |
+|--------|-----------|--|------------|
+|  [0:3]      | [4:5]     | [6:7] | [8:15]  |
 
+### Description
 | Name | Opcode | Arg A | Arg B | Extra Data Byte | Description |
 |------|---|-----------|-------------|------------|-------------|
 | NOP  | 0 | None      | None        | No         | No operation |
@@ -26,7 +28,21 @@ A Simple 8 bit RISC-like CPU with expandable data bus. It executes every instruc
 | IN   | E | target    | port        | No         | Set target value with selected port |
 | OUT  | F | port      | register    | Optional   | Set output value with a register value or immediate data |
 
-### Registers and Keywords
+> **Special Use Cases:**
+> - Relative jump with range of [-128, 127] 
+>   ```
+>   MOV PC 'value'
+>   ```
+> - Jumping to last address of the memory will make the cpu halt
+>   ``` 
+>   MOV R0 0  ; Set Register 0 to value 0
+>   INV R0    ; Inverse all bits to make the value as big as it can 
+>   MOV PC R0 ; Jump to there
+>   ```
+> - Unlike other operations, `PSH` instruction can read PC 
+
+
+### Registers and Arguments
 
 | Name | 00 | 01 | 10 | 11 |
 |------|---|---|---|---|
