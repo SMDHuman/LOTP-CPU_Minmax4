@@ -40,8 +40,12 @@ class MINMAX4():
     self.carry_flag = False
     self.port_A = 0x00
     self.port_B = 0x00
-    self.port_A_DIR = 0x00
-    self.port_B_DIR = 0x00
+    self.port_C = 0x00
+    self.port_D = 0x00
+    self.port_A_update = False
+    self.port_B_update = False
+    self.port_C_update = False
+    self.port_D_update = False
     self.stack = []
     self.instructions = ["NOP", "MOV", "LOD", "STR", "ADD", "SUB", "AND", "OR", "XOR", "INV", "ROT", "BRC", "PSH", "POP", "IN", "OUT"]
     #RAM = bytearray(self.byte_mask)
@@ -79,22 +83,30 @@ class MINMAX4():
   def set_port(self, port, value):
     if port == 0:
       self.port_A = value & self.byte_mask
+      self.port_A_update = True
     elif port == 1:
       self.port_B = value & self.byte_mask
+      self.port_B_update = True
     elif port == 2:
-      self.port_A_DIR = value & self.byte_mask
+      self.port_C = value & self.byte_mask
+      self.port_C_update = True
     elif port == 3:
-      self.port_B_DIR = value & self.byte_mask
+      self.port_D = value & self.byte_mask
+      self.port_D_update = True
 
   def push_port(self, port, value):
     if port == 0:
       self.port_A = (self.port_A << 8 | (value & 0xFF)) & self.byte_mask
+      self.port_A_update = True
     elif port == 1:
       self.port_B = (self.port_B << 8 | (value & 0xFF)) & self.byte_mask
+      self.port_B_update = True
     elif port == 2:
-      self.port_A_DIR = (self.port_A_DIR << 8 | (value & 0xFF)) & self.byte_mask
+      self.port_C = (self.port_C << 8 | (value & 0xFF)) & self.byte_mask
+      self.port_C_update = True
     elif port == 3:
-      self.port_B_DIR = (self.port_B_DIR << 8 | (value & 0xFF)) & self.byte_mask
+      self.port_D = (self.port_D << 8 | (value & 0xFF)) & self.byte_mask
+      self.port_D_update = True
   
   def get_port(self, port):
     if port == 0:
@@ -102,9 +114,9 @@ class MINMAX4():
     elif port == 1:
       return self.port_B
     elif port == 2:
-      return self.port_A_DIR
+      return self.port_C
     elif port == 3:
-      return self.port_B_DIR
+      return self.port_D
     
   def read_memory(self, address) -> int:
     if address < 0 or address > self.byte_mask:
@@ -131,11 +143,16 @@ class MINMAX4():
       self.reg_pc = (self.reg_pc + offset) & self.byte_mask
 
   def tick(self):
+    #...
+    self.port_A_update = False
+    self.port_B_update = False
+    self.port_C_update = False
+    self.port_D_update = False
+    #...
     instruction = self.read_memory(self.reg_pc) & 0x0F
     arg1, arg2 = (self.read_memory(self.reg_pc) & 0x30) >> 4, (self.read_memory(self.reg_pc) & 0xC0) >> 6
     self.advence_pc()
-    
-
+    #...
     match instruction:
       #---------------------------------------------------------------
       # NOP
@@ -304,6 +321,8 @@ if( __name__ == "__main__"):
   while not mm4.halt:
     mm4.tick()
     #print(f"PC: {mm4.reg_pc:04X}, R0: {mm4.reg_r0:04X}, R1: {mm4.reg_r1:04X}, R2: {mm4.reg_r2:04X}, CF: {mm4.carry_flag}")
-    if(mm4.port_B != 0):
+    if(mm4.port_A_update):
       print(f"Port A: {mm4.port_A}, {chr(mm4.port_A)}")
     #input("Press Enter to continue...")
+  mm4.ROM.close()
+  os.remove("./rom.bin")
