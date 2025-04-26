@@ -3,9 +3,6 @@ OUT A R0
 SUB R0 1
 BRC NEZ -3
 
-mov r2 world
-mov pc r2
-
 text = "Hello World"
 
 OUT A text # 0
@@ -14,10 +11,10 @@ OUT A text # 2
 OUT A text # 3
 OUT A text # 4
 OUT A text # 5
-world:
 OUT A text # 6
 OUT A text # 7
 OUT A text # 8
 OUT A text # 9
 OUT A text # 10
+OUT A 0
 

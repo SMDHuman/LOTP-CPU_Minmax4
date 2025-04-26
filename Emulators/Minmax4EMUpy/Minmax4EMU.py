@@ -30,7 +30,6 @@ class MINMAX4():
       self.ROM.seek(0)  # Reset the file pointer to the beginning
     #...
     self.byte_mask = (1 << (self.byte_length * 8)) - 1
-    print(f"Byte length: {self.byte_length} bits")
     #----------------------------------------------------------------------------
     # Initialize registers and flags
     self.halt = False
@@ -134,6 +133,7 @@ class MINMAX4():
   def tick(self):
     instruction = self.read_memory(self.reg_pc) & 0x0F
     arg1, arg2 = (self.read_memory(self.reg_pc) & 0x30) >> 4, (self.read_memory(self.reg_pc) & 0xC0) >> 6
+    self.advence_pc()
     
 
     match instruction:
@@ -145,26 +145,30 @@ class MINMAX4():
       # MOV
       case 0x1:
         if(arg2 == 0x0):
-          self.push_target(arg1, self.read_memory(self.reg_pc + 1))
+          self.push_target(arg1, self.read_memory(self.reg_pc))
           self.advence_pc()
         else:
           self.set_target(arg1, self.get_register(arg2))
       #---------------------------------------------------------------
       # LOD
       case 0x2:
-        self.push_target(arg1, self.read_memory(self.get_register(arg2) + self.read_memory(self.reg_pc + 1)))
+        _offset = self.get_register(arg2)
+        _adrs = self.read_memory(self.reg_pc)
+        self.push_target(arg1, self.read_memory(_offset + _adrs))
         self.advence_pc()
       #---------------------------------------------------------------
       # STR
       case 0x3:
-        self.write_memory(arg2 + self.read_memory(self.reg_pc+1), self.get_register(arg1) & 0xFF)
+        _offset = self.get_register(arg2)
+        _adrs = self.read_memory(self.reg_pc)
+        self.write_memory(_offset + _adrs, self.get_register(arg1) & 0xFF)
         self.advence_pc()
       #---------------------------------------------------------------
       # ADD
       case 0x4:
         _a = self.get_register(arg1)
         if(arg2 == 0x0):
-          _b = self.read_memory(self.reg_pc + 1)
+          _b = self.read_memory(self.reg_pc)
           self.advence_pc()
         else:
           _b = self.get_register(arg2)
@@ -179,7 +183,7 @@ class MINMAX4():
       case 0x5:
         _a = self.get_register(arg1)
         if(arg2 == 0x0):
-          _b = self.read_memory(self.reg_pc + 1)
+          _b = self.read_memory(self.reg_pc)
           self.advence_pc()
         else:
           _b = self.get_register(arg2)
@@ -195,7 +199,7 @@ class MINMAX4():
       case 0x6:
         _a = self.get_register(arg1)
         if(arg2 == 0x0):
-          _b = self.read_memory(self.reg_pc + 1)
+          _b = self.read_memory(self.reg_pc)
           self.advence_pc()
         else:
           _b = self.get_register(arg2)
@@ -206,7 +210,7 @@ class MINMAX4():
       case 0x7:
         _a = self.get_register(arg1)
         if(arg2 == 0x0):
-          _b = self.read_memory(self.reg_pc + 1)
+          _b = self.read_memory(self.reg_pc)
           self.advence_pc()
         else:
           _b = self.get_register(arg2)
@@ -217,7 +221,7 @@ class MINMAX4():
       case 0x8:
         _a = self.get_register(arg1)
         if(arg2 == 0x0):
-          _b = self.read_memory(self.reg_pc + 1)
+          _b = self.read_memory(self.reg_pc)
           self.advence_pc()
         else:
           _b = self.get_register(arg2)
@@ -234,7 +238,7 @@ class MINMAX4():
       case 0xA:
         _a = self.get_register(arg1)
         if(arg2 == 0x0):
-          _b = self.read_memory(self.reg_pc + 1)
+          _b = self.read_memory(self.reg_pc)
           self.advence_pc()
         else:
           _b = self.get_register(arg2)
@@ -250,7 +254,7 @@ class MINMAX4():
         cond += (self.reg_r0 != 0 and arg1 == 3)
         if(cond > 0):
           if(arg2 == 0x0):
-            offset = self.read_memory(self.reg_pc + 1)
+            offset = self.read_memory(self.reg_pc)
             offset =  offset - 256 if offset > 127 else offset
             self.advence_pc()
           else:
@@ -277,7 +281,7 @@ class MINMAX4():
       # OUT
       case 0xF:
         if(arg2 == 0x0):
-          self.push_port(arg1, self.read_memory(self.reg_pc + 1))
+          self.push_port(arg1, self.read_memory(self.reg_pc))
           self.advence_pc()
         else:
           self.set_port(arg1, self.get_register(arg2))
@@ -286,21 +290,20 @@ class MINMAX4():
       case _:
         print(f"Error: Invalid instruction {instruction} at address {self.reg_pc-1}")
         sys.exit(1)
-    self.advence_pc()
 
 
 if( __name__ == "__main__"):
-  mm4 = MINMAX4("../Assembler/Examples/Hello_World")
-  # Read the ROM file and print its contents
-  for i in range(mm4.byte_mask):
+  mm4 = MINMAX4("../Assembler/Examples/Hello_World_db")
+  # Print content of the ROM
+  for i in range(0, mm4.byte_mask):
     mm4.ROM.seek(i)
     byte = mm4.ROM.read(1)
-    if byte:
-      print(f"Byte {i}: {byte.hex()}")
-    else:
+    if byte == b'':
       break
-
+    print(f"Address: {i:04X}, Value: {byte[0]:02X}")
   while not mm4.halt:
     mm4.tick()
-    if(mm4.reg_pc == 0x00):
-      break
+    #print(f"PC: {mm4.reg_pc:04X}, R0: {mm4.reg_r0:04X}, R1: {mm4.reg_r1:04X}, R2: {mm4.reg_r2:04X}, CF: {mm4.carry_flag}")
+    if(mm4.port_B != 0):
+      print(f"Port A: {mm4.port_A}, {chr(mm4.port_A)}")
+    #input("Press Enter to continue...")
