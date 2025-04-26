@@ -1,7 +1,6 @@
 ; This code show how to use allocate, use and compute with variables
 ; 16 bit program
 
-
 uint16 varx
 mov r0 1000
 set_u16 varx r0
@@ -9,7 +8,6 @@ mov r0 2000
 get_u16 r1 varx
 add r0 r1
 out a r0 
-
 
 ;-------------------------------------------------------
 ; Macros

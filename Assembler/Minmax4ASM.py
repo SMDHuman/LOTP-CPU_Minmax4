@@ -277,6 +277,7 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
     print(f"Error: {msg}")
     if(DEBUG_MODE):
       print("Current ROM: ", [hex(byte) for byte in ROM])
+      print("Branches: ", branches) 
     sys.exit(1)
 
   #...
@@ -296,15 +297,18 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
     values = []
     #...
     if(tokens.current().type == "VALUE"):
-      values += split_bytes(int(tokens.next().word, 0), BYTE_LENGHT)
+      if(tokens.current().word.isnumeric()):
+        values += split_bytes(int(tokens.next().word, 0), BYTE_LENGHT)
+      else:
+        error(f"Invalid value '{tokens.current().word}' at line {tokens.current().line}.")
     #...
     elif(tokens.current().type == "WORD"):
       if(tokens.current().word in branches):
         if(branches[tokens.current().word] == -1):
-          branches_fill_later[len(ROM)] = tokens.current().word
+          branches_fill_later[len(ROM)] = tokens.next().word
           values += [0]*BYTE_LENGHT
         else:
-          values += split_bytes(branches[tokens.current().word], BYTE_LENGHT)
+          values += split_bytes(branches[tokens.next().word], BYTE_LENGHT)
       elif(tokens.current().word in constants):
         values += constants[tokens.next().word]
       else:
@@ -354,48 +358,46 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
         constants[header.word] = eval_values(tokens)
       #...
       if(header.word.upper() in instructions):
-        if(header.word.upper() == "NOP"):
-          ROM.append(instructions[header.word.upper()])
-        elif(header.word.upper() in instructions):
-          byte = instructions[header.word.upper()]
-          values = []
-          # Argument 1
+        byte = instructions[header.word.upper()]
+        values = []
+        # Argument 1
+        if(header.word.upper() != "NOP"):
           if(tokens.current().word.upper() in arg_consts):
             byte |= (arg_consts[tokens.next().word.upper()] << 4)
-          # Argument 2
-          if(header.word.upper() not in ["INV", "PSH", "POP"]):
-            if(header.word.upper() in ["LOD", "STR"]):
-                byte |= (arg_consts[tokens.next().word.upper()] << 6)
-                if tokens.current().type == "SEPARATOR":
-                  values = [0]
-                else:
-                  values = eval_values(tokens) 
-            elif(header.word.upper() == "IN"):
-                byte |= (arg_consts[tokens.next().word.upper()] << 6)
-            else:
-              if(tokens.current().word.upper() in arg_consts):
-                byte |= (arg_consts[tokens.next().word.upper()] << 6)
+          else:
+            error(f"Unknown argument '{tokens.current().word}' at line {header.line}.")
+        # Argument 2
+        if(header.word.upper() not in ["INV", "PSH", "POP", "NOP"]):
+          if(header.word.upper() in ["LOD", "STR"]):
+              byte |= (arg_consts[tokens.next().word.upper()] << 6)
+              if tokens.current().type == "SEPARATOR":
+                values = [0]
               else:
-                values = eval_values(tokens)
-          # Put the values in the byte array
-          if(values):
-            if(header.word.upper() in ["MOV", "OUT"]):
-              for i in range(min(len(values), BYTE_LENGHT)):
-                value = values[::-1][i]        
-                ROM.append(byte)
-                ROM.append(value)
+                values = eval_values(tokens) 
+          elif(header.word.upper() == "IN"):
+              byte |= (arg_consts[tokens.next().word.upper()] << 6)
+          else:
+            if(tokens.current().word.upper() in arg_consts):
+              byte |= (arg_consts[tokens.next().word.upper()] << 6)
             else:
+              values = eval_values(tokens)
+        # Put the values in the byte array
+        if(values):
+          if(header.word.upper() in ["MOV", "OUT"]):
+            for i in range(min(len(values), BYTE_LENGHT)):
+              value = values[::-1][i]        
               ROM.append(byte)
-              ROM.append(values[0])
+              ROM.append(value)
           else:
             ROM.append(byte)
+            ROM.append(values[0])
         else:
-          tokens.next()
+          ROM.append(byte)
       else:
+        error(f"Unknown instruction '{header.word}' at line {header.line}.")
         tokens.next()
     else:
-      values = eval_values(tokens)
-      for value in values:
+      for value in eval_values(tokens):
         ROM.append(value)
   #---------------------------------------
   # Fill the branches with the correct values
@@ -406,7 +408,7 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
     value = split_bytes(branches[branches_fill_later[branch]], BYTE_LENGHT)[::-1]
     for i in range(BYTE_LENGHT):
       ROM[branch+(i*2)+1] = value[i]
-
+  #...
   if(DEBUG_MODE):
     # print rom in hex format with addresses
     print("ROM--", end="")
@@ -424,6 +426,7 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
 
     print("Branches: ", branches)
     print("Branches to fill later: ", branches_fill_later)
+  #...
   return(ROM)
 
 #------------------------------------------------------------------------------
