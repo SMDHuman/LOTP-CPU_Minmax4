@@ -1,128 +1,140 @@
 import sys, os
 import argparse
 
-def main():
-  parser = argparse.ArgumentParser(description='Minmax4EMUpy - Minmax4 Emulator')
-  parser.add_argument('input', type=str, help='Input file path')
-  parser.add_argument('-d', "--debug", action='store_true', help='Enable debug mode')
-  parser.add_argument('-p', "--print_out", action='store_true', help='Print the output')
-  parser.add_argument('-m', "--mem_print", help='Print sections of memory', type=str)
-  args = parser.parse_args()
-  #...
-  input_file = args.input
-  if not os.path.isfile(input_file):
-    print(f"Error: File '{input_file}' not found.")
-    sys.exit(1)
-  #...
-  magic = "MNMX"
-  version = 0x04
-  byte_length = 0
-  ROM: bytearray = bytearray(0)
-  with open(input_file, 'rb') as f:
-    header = f.read(6)
-    if header[:4] != magic.encode():
-      print(f"Error: Invalid file format. Expected '{magic}', got '{header.decode()}'")
+class MINMAX4():
+  def __init__(self, input_file: str):
+    #...
+    if not os.path.isfile(input_file):
+      print(f"Error: File '{input_file}' not found.")
       sys.exit(1)
-    if header[4] != version:
-      print(f"Error: Unsupported version. Expected {version}, got {header[4]}")
-      sys.exit(1)
-    byte_length = header[5]
-    if byte_length < 1:
-      print(f"Error: Invalid byte length. Expected at least 1, got {byte_length}")
-      sys.exit(1)
-  
-    # Read the rest of the file and process it
-    ROM += f.read()
-  #...
-  byte_mask = (1 << (byte_length * 8)) - 1
-  ROM += bytearray([0x00] * (byte_mask - len(ROM)))  # Pad with zeros if needed
-  print("Ready to process the input data...")
-  if(args.debug): print("ROM: ", [hex(x) for x in ROM])
-  #----------------------------------------------------------------------------
-  # Initialize registers and flags
-  reg_pc = 0x0000
-  reg_r0 = 0x0000
-  reg_r1 = 0x0000
-  reg_r2 = 0x0000
-  carry_flag = False
-  port_A = 0x00
-  port_B = 0x00
-  port_A_DIR = 0x00
-  port_B_DIR = 0x00
-  stack = []
-  instructions = ["NOP", "MOV", "LOD", "STR", "ADD", "SUB", "AND", "OR", "XOR", "INV", "ROT", "BRC", "PSH", "POP", "IN", "OUT"]
-  #RAM = bytearray(byte_mask)
-
-  def set_target(target, value):
-    nonlocal reg_pc, reg_r0, reg_r1, reg_r2
-    if target == 0:
-      reg_pc = value & byte_mask
-    elif target == 1:
-      reg_r0 = value & byte_mask
-    elif target == 2:
-      reg_r1 = value & byte_mask
-    elif target == 3:
-      reg_r2 = value & byte_mask
-
-  def push_target(target, value):
-    nonlocal reg_pc, reg_r0, reg_r1, reg_r2
-    if target == 0:
-      reg_pc = (reg_pc + (value & 0xFF)) & byte_mask
-    elif target == 1:
-      reg_r0 = (reg_r0<< 8 | (value & 0xFF)) & byte_mask
-    elif target == 2:
-      reg_r1 = (reg_r1<< 8 | (value & 0xFF)) & byte_mask
-    elif target == 3:
-      reg_r2 = (reg_r2<< 8 | (value & 0xFF)) & byte_mask
-
-  def get_register(reg):
-    if reg == 0:
-      return reg_pc
-    elif reg == 1:
-      return reg_r0
-    elif reg == 2:
-      return reg_r1
-    elif reg == 3:
-      return reg_r2
+    #...
+    magic = "MNMX"
+    version = 0x04
+    self.byte_length = 0
+    self.ROM = open("./rom.bin", 'wb+')
+    with open(input_file, 'rb') as f:
+      header = f.read(6)
+      if header[:4] != magic.encode():
+        print(f"Error: Invalid file format. Expected '{magic}', got '{header.decode()}'")
+        sys.exit(1)
+      if header[4] != version:
+        print(f"Error: Unsupported version. Expected {version}, got {header[4]}")
+        sys.exit(1)
+      self.byte_length = header[5]
+      if self.byte_length < 1:
+        print(f"Error: Invalid byte length. Expected at least 1, got {self.byte_length}")
+        sys.exit(1)
     
-  def set_port(port, value):
-    nonlocal port_A, port_B, port_A_DIR, port_B_DIR
-    if port == 0:
-      port_A = value & byte_mask
-    elif port == 1:
-      port_B = value & byte_mask
-    elif port == 2:
-      port_A_DIR = value & byte_mask
-    elif port == 3:
-      port_B_DIR = value & byte_mask
+      # Read the rest of the file and process it
+      self.ROM.write(f.read())
+      self.ROM.seek(0)  # Reset the file pointer to the beginning
+    #...
+    self.byte_mask = (1 << (self.byte_length * 8)) - 1
+    print(f"Byte length: {self.byte_length} bits")
+    #----------------------------------------------------------------------------
+    # Initialize registers and flags
+    self.halt = False
+    self.reg_pc = 0x0000
+    self.reg_r0 = 0x0000
+    self.reg_r1 = 0x0000
+    self.reg_r2 = 0x0000
+    self.carry_flag = False
+    self.port_A = 0x00
+    self.port_B = 0x00
+    self.port_A_DIR = 0x00
+    self.port_B_DIR = 0x00
+    self.stack = []
+    self.instructions = ["NOP", "MOV", "LOD", "STR", "ADD", "SUB", "AND", "OR", "XOR", "INV", "ROT", "BRC", "PSH", "POP", "IN", "OUT"]
+    #RAM = bytearray(self.byte_mask)
 
-  def push_port(port, value):
-    nonlocal port_A, port_B, port_A_DIR, port_B_DIR
+  def set_target(self, target, value):
+    if target == 0:
+      self.reg_pc = value & self.byte_mask
+    elif target == 1:
+      self.reg_r0 = value & self.byte_mask
+    elif target == 2:
+      self.reg_r1 = value & self.byte_mask
+    elif target == 3:
+      self.reg_r2 = value & self.byte_mask
+
+  def push_target(self, target, value):
+    if target == 0:
+      self.reg_pc = (self.reg_pc + (value & 0xFF)) & self.byte_mask
+    elif target == 1:
+      self.reg_r0 = (self.reg_r0<< 8 | (value & 0xFF)) & self.byte_mask
+    elif target == 2:
+      self.reg_r1 = (self.reg_r1<< 8 | (value & 0xFF)) & self.byte_mask
+    elif target == 3:
+      self.reg_r2 = (self.reg_r2<< 8 | (value & 0xFF)) & self.byte_mask
+
+  def get_register(self, reg):
+    if reg == 0:
+      return self.reg_pc
+    elif reg == 1:
+      return self.reg_r0
+    elif reg == 2:
+      return self.reg_r1
+    elif reg == 3:
+      return self.reg_r2
+    
+  def set_port(self, port, value):
     if port == 0:
-      port_A = (port_A << 8 | (value & 0xFF)) & byte_mask
+      self.port_A = value & self.byte_mask
     elif port == 1:
-      port_B = (port_B << 8 | (value & 0xFF)) & byte_mask
+      self.port_B = value & self.byte_mask
     elif port == 2:
-      port_A_DIR = (port_A_DIR << 8 | (value & 0xFF)) & byte_mask
+      self.port_A_DIR = value & self.byte_mask
     elif port == 3:
-      port_B_DIR = (port_B_DIR << 8 | (value & 0xFF)) & byte_mask
+      self.port_B_DIR = value & self.byte_mask
+
+  def push_port(self, port, value):
+    if port == 0:
+      self.port_A = (self.port_A << 8 | (value & 0xFF)) & self.byte_mask
+    elif port == 1:
+      self.port_B = (self.port_B << 8 | (value & 0xFF)) & self.byte_mask
+    elif port == 2:
+      self.port_A_DIR = (self.port_A_DIR << 8 | (value & 0xFF)) & self.byte_mask
+    elif port == 3:
+      self.port_B_DIR = (self.port_B_DIR << 8 | (value & 0xFF)) & self.byte_mask
   
-  def get_port(port):
+  def get_port(self, port):
     if port == 0:
-      return port_A
+      return self.port_A
     elif port == 1:
-      return port_B
+      return self.port_B
     elif port == 2:
-      return port_A_DIR
+      return self.port_A_DIR
     elif port == 3:
-      return port_B_DIR
+      return self.port_B_DIR
+    
+  def read_memory(self, address) -> int:
+    if address < 0 or address > self.byte_mask:
+      raise ValueError("Address out of range")
+    elif(address >= self.ROM.__sizeof__()):
+      return(0x00)
+    self.ROM.seek(address)
+    val = self.ROM.read(1)
+    if(val == b''):
+      return(0x00)
+    else:
+      return val[0]
+  
+  def write_memory(self, address, value):
+    if address < 0 or address >= self.byte_mask:
+      raise ValueError("Address out of range")
+    self.ROM.seek(address)
+    self.ROM.write(bytes([value & 0xFF]))
+  
+  def advence_pc(self, offset = 1):
+    if(offset + self.reg_pc > self.byte_mask):
+      self.halt = True
+    else:
+      self.reg_pc = (self.reg_pc + offset) & self.byte_mask
 
-  #----------------------------------------------------------------------------
-  # Main loop
-  while( reg_pc < len(ROM)):
-    instruction = ROM[reg_pc] & 0x0F
-    arg1, arg2 = (ROM[reg_pc] & 0x30) >> 4, (ROM[reg_pc] & 0xC0) >> 6
-    reg_pc = (reg_pc+1) & byte_mask
+  def tick(self):
+    instruction = self.read_memory(self.reg_pc) & 0x0F
+    arg1, arg2 = (self.read_memory(self.reg_pc) & 0x30) >> 4, (self.read_memory(self.reg_pc) & 0xC0) >> 6
+    
 
     match instruction:
       #---------------------------------------------------------------
@@ -133,172 +145,162 @@ def main():
       # MOV
       case 0x1:
         if(arg2 == 0x0):
-          push_target(arg1, ROM[reg_pc])
-          reg_pc = (reg_pc+1) & byte_mask
+          self.push_target(arg1, self.read_memory(self.reg_pc + 1))
+          self.advence_pc()
         else:
-          set_target(arg1, get_register(arg2))
+          self.set_target(arg1, self.get_register(arg2))
       #---------------------------------------------------------------
       # LOD
       case 0x2:
-        push_target(arg1, ROM[get_register(arg2) + ROM[reg_pc]])
-        reg_pc = (reg_pc+1) & byte_mask
+        self.push_target(arg1, self.read_memory(self.get_register(arg2) + self.read_memory(self.reg_pc + 1)))
+        self.advence_pc()
       #---------------------------------------------------------------
       # STR
       case 0x3:
-        ROM[get_register(arg2) + ROM[reg_pc]] = get_register(arg1) & 0xFF
-        reg_pc = (reg_pc+1) & byte_mask
+        self.write_memory(arg2 + self.read_memory(self.reg_pc+1), self.get_register(arg1) & 0xFF)
+        self.advence_pc()
       #---------------------------------------------------------------
       # ADD
       case 0x4:
-        _a = get_register(arg1)
+        _a = self.get_register(arg1)
         if(arg2 == 0x0):
-          _b = ROM[reg_pc]
-          reg_pc = (reg_pc+1) & byte_mask
+          _b = self.read_memory(self.reg_pc + 1)
+          self.advence_pc()
         else:
-          _b = get_register(arg2)
+          _b = self.get_register(arg2)
         _c = _a + _b
-        if(_c > byte_mask):
-          carry_flag = True
+        if(_c > self.byte_mask):
+          self.carry_flag = True
         else:
-          carry_flag = False
-        set_target(arg1, _c & byte_mask)
+          self.carry_flag = False
+        self.set_target(arg1, _c & self.byte_mask)
       #----------------------------------------------------------------
       # SUB
       case 0x5:
-        _a = get_register(arg1)
+        _a = self.get_register(arg1)
         if(arg2 == 0x0):
-          _b = ROM[reg_pc]
-          reg_pc = (reg_pc+1) & byte_mask
+          _b = self.read_memory(self.reg_pc + 1)
+          self.advence_pc()
         else:
-          _b = get_register(arg2)
+          _b = self.get_register(arg2)
         _c = _a - _b
         if(_c < 0):
-          _c = byte_mask + _c + 1
-          carry_flag = True
+          _c = self.byte_mask + _c + 1
+          self.carry_flag = True
         else:
-          carry_flag = False
-        set_target(arg1, _c & byte_mask)
+          self.carry_flag = False
+        self.set_target(arg1, _c & self.byte_mask)
       #----------------------------------------------------------------
       # AND
       case 0x6:
-        _a = get_register(arg1)
+        _a = self.get_register(arg1)
         if(arg2 == 0x0):
-          _b = ROM[reg_pc]
-          reg_pc = (reg_pc+1) & byte_mask
+          _b = self.read_memory(self.reg_pc + 1)
+          self.advence_pc()
         else:
-          _b = get_register(arg2)
+          _b = self.get_register(arg2)
         _c = _a & _b
-        set_target(arg1, _c & byte_mask)
+        self.set_target(arg1, _c & self.byte_mask)
       #----------------------------------------------------------------
       # OR
       case 0x7:
-        _a = get_register(arg1)
+        _a = self.get_register(arg1)
         if(arg2 == 0x0):
-          _b = ROM[reg_pc]
-          reg_pc = (reg_pc+1) & byte_mask
+          _b = self.read_memory(self.reg_pc + 1)
+          self.advence_pc()
         else:
-          _b = get_register(arg2)
+          _b = self.get_register(arg2)
         _c = _a | _b
-        set_target(arg1, _c & byte_mask)
+        self.set_target(arg1, _c & self.byte_mask)
       #----------------------------------------------------------------
       # XOR
       case 0x8:
-        _a = get_register(arg1)
+        _a = self.get_register(arg1)
         if(arg2 == 0x0):
-          _b = ROM[reg_pc]
-          reg_pc = (reg_pc+1) & byte_mask
+          _b = self.read_memory(self.reg_pc + 1)
+          self.advence_pc()
         else:
-          _b = get_register(arg2)
+          _b = self.get_register(arg2)
         _c = _a ^ _b
-        set_target(arg1, _c & byte_mask)
+        self.set_target(arg1, _c & self.byte_mask)
       #----------------------------------------------------------------
       # INV
       case 0x9:
-        _a = get_register(arg1)
+        _a = self.get_register(arg1)
         _c = ~_a
-        set_target(arg1, _c & byte_mask)
+        self.set_target(arg1, _c & self.byte_mask)
       #----------------------------------------------------------------
       # ROT
       case 0xA:
-        _a = get_register(arg1)
+        _a = self.get_register(arg1)
         if(arg2 == 0x0):
-          _b = ROM[reg_pc]
-          reg_pc = (reg_pc+1) & byte_mask
+          _b = self.read_memory(self.reg_pc + 1)
+          self.advence_pc()
         else:
-          _b = get_register(arg2)
-        _c = (_a << _b) | (_a >> (byte_length*8 - _b))
-        set_target(arg1, _c & byte_mask)
+          _b = self.get_register(arg2)
+        _c = (_a << _b) | (_a >> (self.byte_length*8 - _b))
+        self.set_target(arg1, _c & self.byte_mask)
       #----------------------------------------------------------------
       # BRC
       case 0xB:
         cond = 0 
-        cond += (carry_flag and arg1 == 0)
-        cond += (reg_r0 == 0 and arg1 == 1)
-        cond += ((not carry_flag) and arg1 == 2)
-        cond += (reg_r0 != 0 and arg1 == 3)
+        cond += (self.carry_flag and arg1 == 0)
+        cond += (self.reg_r0 == 0 and arg1 == 1)
+        cond += ((not self.carry_flag) and arg1 == 2)
+        cond += (self.reg_r0 != 0 and arg1 == 3)
         if(cond > 0):
           if(arg2 == 0x0):
-            offset = ROM[reg_pc]
+            offset = self.read_memory(self.reg_pc + 1)
             offset =  offset - 256 if offset > 127 else offset
-            reg_pc = (reg_pc + offset-1) & byte_mask
+            self.advence_pc()
           else:
-            reg_pc = get_register(arg2) & byte_mask
+            self.reg_pc = self.get_register(arg2) & self.byte_mask
         else:
           if(arg2 == 0x0):
-            reg_pc = (reg_pc+1) & byte_mask
+            self.advence_pc()
       #----------------------------------------------------------------
       # PSH
       case 0xC:
-        stack.append(get_register(arg1))
+        self.stack.append(self.get_register(arg1))
       #----------------------------------------------------------------
       # POP
       case 0xD:
-        if(len(stack) > 0):
-          set_target(arg1, stack.pop())
+        if(len(self.stack) > 0):
+          self.set_target(arg1, self.stack.pop())
         else:
-          set_target(arg1, 0x00)
+          self.set_target(arg1, 0x00)
       #----------------------------------------------------------------
       # IN
       case 0xE:
-        set_target(arg1, get_port(arg2))
+        self.set_target(arg1, self.get_port(arg2))
       #---------------------------------------------------------------- 
       # OUT
       case 0xF:
         if(arg2 == 0x0):
-          push_port(arg1, ROM[reg_pc])
-          reg_pc = (reg_pc+1) & byte_mask
+          self.push_port(arg1, self.read_memory(self.reg_pc + 1))
+          self.advence_pc()
         else:
-          set_port(arg1, get_register(arg2))
-        if(args.print_out):
-          value = get_port(arg1)
-          print(f"Output: {value}, [{hex(value)}], '{chr(value)}'")
+          self.set_port(arg1, self.get_register(arg2))
       #----------------------------------------------------------------
       # Invalid instruction
       case _:
-        print(f"Error: Invalid instruction {instruction} at address {reg_pc-1}")
+        print(f"Error: Invalid instruction {instruction} at address {self.reg_pc-1}")
         sys.exit(1)
-      
-    # Print the final state of the registers and flags
-    if(args.debug):
-      print("-" * 40)
-      print(f"Instruction: {instructions[instruction]}, Arg1: {hex(arg1)}, Arg2: {hex(arg2)}")
-      print(f"PC: {hex(reg_pc)}, R0: {hex(reg_r0)}, R1: {hex(reg_r1)}, R2: {hex(reg_r2)}, Carry: {hex(carry_flag)}, Stack: {[hex(x) for x in stack]}")
-      print(f"Port A: {hex(port_A)}, Port B: {hex(port_B)}, Port A DIR: {hex(port_A_DIR)}, Port B DIR: {hex(port_B_DIR)}")
-      #print("ROM: ", [hex(x) for x in ROM])
-      input("Press Enter to continue...")
-  
-  # Print the final state of the registers and flags
-  print("-" * 40)
-  print("Final State:")
-  print(f"PC: {hex(reg_pc)}, R0: {hex(reg_r0)}, R1: {hex(reg_r1)}, R2: {hex(reg_r2)}, Carry: {hex(carry_flag)}, Stack: {[hex(x) for x in stack]}")
-  print(f"Port A: {hex(port_A)}, Port B: {hex(port_B)}, Port A DIR: {hex(port_A_DIR)}, Port B DIR: {hex(port_B_DIR)}")
-  if(args.mem_print):
-    start, end = args.mem_print.split(":")
-    start = int(start, 0)
-    end = int(end, 0)
-    print("Memory Dump:")
-    for i in range(start, end + 1):
-      print(f"0x{i:02X}: {hex(ROM[i])}")
+    self.advence_pc()
+
 
 if( __name__ == "__main__"):
-  main()
+  mm4 = MINMAX4("../Assembler/Examples/Hello_World")
+  # Read the ROM file and print its contents
+  for i in range(mm4.byte_mask):
+    mm4.ROM.seek(i)
+    byte = mm4.ROM.read(1)
+    if byte:
+      print(f"Byte {i}: {byte.hex()}")
+    else:
+      break
+
+  while not mm4.halt:
+    mm4.tick()
+    if(mm4.reg_pc == 0x00):
+      break

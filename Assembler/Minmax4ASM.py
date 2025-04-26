@@ -357,7 +357,7 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
         tokens.next()
         constants[header.word] = eval_values(tokens)
       #...
-      if(header.word.upper() in instructions):
+      elif(header.word.upper() in instructions):
         byte = instructions[header.word.upper()]
         values = []
         # Argument 1
