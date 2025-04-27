@@ -61,10 +61,10 @@ class MINMAX4():
     self.port_B = 0x00
     self.port_C = 0x00
     self.port_D = 0x00
-    self.port_A_update = True
-    self.port_B_update = True
-    self.port_C_update = True
-    self.port_D_update = True
+    self.port_A_update = False
+    self.port_B_update = False
+    self.port_C_update = False
+    self.port_D_update = False
     self.stack.clear()
 
   def set_target(self, target, value):

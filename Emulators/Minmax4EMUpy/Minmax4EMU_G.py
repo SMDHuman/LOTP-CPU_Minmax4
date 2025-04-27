@@ -2,6 +2,7 @@ from Minmax4EMU import MINMAX4
 import customtkinter as tk
 from CTkTable import *  
 import os, sys
+import keyboard
 
 SQUARE = '█'
 CIRCLE = '⚫'
@@ -151,13 +152,13 @@ class Minmax4EMU_G(tk.CTk):
     # -------------------------------------------------------------------------
     # Setup memory frame
     self.memory_table_row = 32
-    self.memory_table = CTkTable(self.memory_frame, row = self.memory_table_row, column = 5)
+    self.memory_table = CTkTable(self.memory_frame, row = self.memory_table_row+1, column = 5)
     self.memory_select = tk.CTkSegmentedButton(self.memory_frame,
                                                 values=["Program", "Stack"],
                                                 command=self.update_memory_table)
     self.memory_select.set("Program")
     for i in range(self.memory_table_row):
-      self.memory_table.edit(i, 0, text = f"{i*4:02x}:", text_color = "gray", font=("Arial", 14, "bold"))
+      self.memory_table.edit(i+1, 0, text = f"{i*4:02x}:", text_color = "gray", font=("Arial", 14, "bold"))
     
 
     self.memory_select.pack(pady=5, padx=5, fill=tk.X)
@@ -167,8 +168,9 @@ class Minmax4EMU_G(tk.CTk):
     self.io_frame.grid_rowconfigure(0, weight=0)
     self.io_frame.grid_rowconfigure(1, weight=0)
     self.io_frame.grid_rowconfigure(2, weight=1)
-    self.io_frame.grid_columnconfigure(0, weight=1)
-    self.io_frame.grid_columnconfigure(1, weight=0)
+    self.io_frame.grid_columnconfigure(0, weight=0)
+    self.io_frame.grid_columnconfigure(1, weight=1)
+    self.io_frame.grid_columnconfigure(2, weight=1)
 
     # Port A, B, C, D
     self.port_frame = tk.CTkFrame(self.io_frame)
@@ -177,6 +179,11 @@ class Minmax4EMU_G(tk.CTk):
     self.port_B_frame = Register_Frame(self.port_frame, "Port B", self.cpu.byte_mask)
     self.port_C_frame = Register_Frame(self.port_frame, "Port C", self.cpu.byte_mask)
     self.port_D_frame = Register_Frame(self.port_frame, "Port D", self.cpu.byte_mask)
+
+    self.port_frames = {"Port A": self.port_A_frame,
+                        "Port B": self.port_B_frame,
+                        "Port C": self.port_C_frame,
+                        "Port D": self.port_D_frame}
 
     self.port_A_frame.value_entered = self.handle_register_entry
     self.port_B_frame.value_entered = self.handle_register_entry
@@ -188,11 +195,10 @@ class Minmax4EMU_G(tk.CTk):
     self.port_C_frame.pack(side=tk.LEFT, padx=5, pady=5)
     self.port_D_frame.pack(side=tk.LEFT, padx=5, pady=5)
 
-    self.port_frame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
     
     # Port Log
     self.port_log_textbox = tk.CTkTextbox(self.io_frame, width=150)
-    self.port_log_textbox.grid(row=0, column=1, padx=5, pady=5, sticky="nsew", rowspan=3)
+    self.port_log_textbox.insert(tk.END, "---- Port Log ----\n")
 
     # Matrix Output
     self.matrix_buffer = [0]*16*16
@@ -207,18 +213,86 @@ class Minmax4EMU_G(tk.CTk):
     self.matrix_X_label = tk.CTkLabel(self.matrix_info_frame, text="Cursor X: \n0")
     self.matrix_Y_label = tk.CTkLabel(self.matrix_info_frame, text="Cursor Y: \n0")
 
+    self.matrix_clear_button = tk.CTkButton(self.matrix_info_frame, text="Clear", command= self.clear_matrix)
+
     self.matrix_port_select.pack(side=tk.TOP, padx=5, pady=5)
     self.matrix_X_label.pack(side= tk.TOP, padx=5)
     self.matrix_Y_label.pack(side= tk.TOP, padx=5)
+    self.matrix_clear_button.pack(side=tk.TOP, padx=5, pady=5)
     self.matrix_info_frame.pack(side=tk.RIGHT, padx=5, pady=5, fill=tk.BOTH)
 
-    self.matrix_frame.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
     self.update_matrix()
+
+    # Controller input with arrow keys
+    self.controller_frame = tk.CTkFrame(self.io_frame)
+    for i in range(3):
+      self.controller_frame.grid_rowconfigure(i, weight=1)
+      self.controller_frame.grid_columnconfigure(i, weight=1)
+
+    self.controller_keypad = CTkTable(self.controller_frame, row=3, column=3, width=30, height=30)
+    self.controller_keypad.edit(0, 1, text=UP, text_color="gray", font=("Arial", 14, "bold"))
+    self.controller_keypad.edit(1, 0, text=LEFT, text_color="gray", font=("Arial", 14, "bold"))
+    self.controller_keypad.edit(1, 2, text=RIGHT, text_color="gray", font=("Arial", 14, "bold"))
+    self.controller_keypad.edit(2, 1, text=DOWN, text_color="gray", font=("Arial", 14, "bold"))
+
+    self.controller_keypad.grid(row=0, column=0, padx=5, pady=5, columnspan=3, rowspan=3)
+
+
+    self.controller_port_select = tk.CTkOptionMenu(self.controller_frame,
+                                                values=["Port A", "Port B", "Port C", "Port D"],
+                                                width=50)
+    self.controller_port_select.set("Port B")
+    self.controller_uplow_select = tk.CTkSegmentedButton(self.controller_frame,
+                                                values=["Higher", "Lower"])
+    self.controller_uplow_select.set("Lower")
+    self.controller_uplow_select.grid(row=2, column=3, padx=5, pady=5, sticky="ew")
+    self.controller_port_select.grid(row=0, column=3, padx=5, pady=5, sticky="ew")
+
+    # Place the io frames in grid
+    self.port_frame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew", columnspan=2)
+    self.port_log_textbox.grid(row=0, column=2, padx=5, pady=5, sticky="nsew", rowspan=3)
+    self.matrix_frame.grid(row=1, column=0, padx=5, pady=5, sticky="nsew", columnspan=2)
+    self.controller_frame.grid(row=2, column=0, padx=5, pady=5)
 
     # Update Things
     self.update_memory_table()
     self.update_memory_table_highlight()
-
+    self.after(100, self.check_keyboard)
+  #----------------------------------------------------------------------------
+  def check_keyboard(self):
+    # Check if the arrow keys are pressed
+    up = keyboard.is_pressed("up")
+    down = keyboard.is_pressed("down")
+    left = keyboard.is_pressed("left")
+    right = keyboard.is_pressed("right")
+    # Update the table based on the arrow keys pressed
+    if(up): self.controller_keypad.select(0, 1)
+    else: self.controller_keypad.deselect(0, 1)
+    if(down): self.controller_keypad.select(2, 1)
+    else: self.controller_keypad.deselect(2, 1)
+    if(left): self.controller_keypad.select(1, 0)
+    else: self.controller_keypad.deselect(1, 0)
+    if(right): self.controller_keypad.select(1, 2)
+    else: self.controller_keypad.deselect(1, 2)
+    #...
+    value = self.port_frames[self.controller_port_select.get()].old_value
+    if(self.controller_uplow_select.get() == "Higher"):
+      value = value & 0x0F
+      value = up<<4 | down<<5 | left<<6 | right<<7
+    else:
+      value = value & 0xF0
+      value = up<<0 | down<<1 | left<<2 | right<<3
+    self.port_frames[self.controller_port_select.get()].update_register(value)
+    #...
+    self.after(100, self.check_keyboard)
+  #----------------------------------------------------------------------------
+  def clear_matrix(self):
+    # Clear the matrix buffer
+    for i in range(16*16):
+      self.matrix_buffer[i] = 0
+    # Update the matrix display
+    self.matrix_label.configure(text="")
+    self.update_matrix()
   #----------------------------------------------------------------------------
   def update_matrix(self, event = None):
     # Get the selected port
@@ -239,19 +313,19 @@ class Minmax4EMU_G(tk.CTk):
     x = value & 0x0F
     y = (value >> 4) & 0x0F
     if(value_update):
-      self.matrix_buffer[x*16+y] = not self.matrix_buffer[x*16+y]
+      self.matrix_buffer[y*16+x] = not self.matrix_buffer[y*16+x]
     
     # Update the matrix display
     self.matrix_X_label.configure(text=f"Cursor X: \n{x}")
     self.matrix_Y_label.configure(text=f"Cursor Y: \n{y}")
     matrix_text = ""
-    for i in range(16):
-      for j in range(16):
-        if(self.matrix_buffer[i*16+j] == 1):
-          matrix_text += CIRCLE
-        else:
-          matrix_text += CIRCLE_OUTLINE
-      matrix_text += "\n"
+    for i in range(16*16):
+      if(self.matrix_buffer[i]):
+        matrix_text += CIRCLE
+      else:
+        matrix_text += CIRCLE_OUTLINE
+      if((i+1) % 16 == 0):
+        matrix_text += "\n"
     self.matrix_label.configure(text=matrix_text)
 
   #----------------------------------------------------------------------------
@@ -278,16 +352,24 @@ class Minmax4EMU_G(tk.CTk):
     self.memory_table.deselect(self.last_selected[0], self.last_selected[1])
     if(self.memory_select.get() == "Program"):
       size = self.memory_table.size()
-      if(self.cpu.reg_pc >= 0 and self.cpu.reg_pc < (size[0]-1)*size[1]):
+      if(self.cpu.reg_pc >= 0 and self.cpu.reg_pc < (size[0]-1)*(size[1]-1)):
         row = self.cpu.reg_pc // (size[0]-1)
         col = self.cpu.reg_pc % (size[0]-1)
-        self.memory_table.select(row, col+1)
-    self.last_selected = [row, col+1]
+        self.memory_table.select(row+1, col+1)
+        self.last_selected = [row+1, col+1]
       
   #----------------------------------------------------------------------------
   # Handle CPU Reset
   def handle_cpu_reset(self):
     self.cpu_running = False
+    self.port_log_textbox.insert(tk.END, "----------------------\n")
+    self.port_log_textbox.insert(tk.END, "CPU Reseting...\n")
+    self.port_log_textbox.insert(tk.END, "----------------------\n")
+    self.port_log_textbox.see(tk.END)
+    self.port_A_frame.update_register(0)
+    self.port_B_frame.update_register(0)
+    self.port_C_frame.update_register(0)
+    self.port_D_frame.update_register(0)
     self.after(1000, self.cpu.reset)
     self.after(1005, self.update_registers)
 
@@ -299,7 +381,7 @@ class Minmax4EMU_G(tk.CTk):
       self.cpu_speed = int(self.run_speed.get().upper().replace("HZ", ""))
     else:
       self.cpu_speed = int(self.run_speed.get())
-  
+  #----------------------------------------------------------------------------
   def update_memory_table(self, event = None):
     """
     This function is called to update the memory table in the GUI.
@@ -308,11 +390,11 @@ class Minmax4EMU_G(tk.CTk):
     table = self.memory_table.get()
     #...
     if(self.memory_select.get() == "Program"):
-      for i in range(len(table)):
+      for i in range(1, len(table)):
         for j in range(1, len(table[i])):
           self.memory_table.edit(i, j, text = hex(self.cpu.read_memory(i*len(table[i])+j))[1:], font = ("Arial", 11))
     elif(self.memory_select.get() == "Stack"):
-      for i in range(len(table)):
+      for i in range(1, len(table)):
         for j in range(1, len(table[i])):
           indx = i*len(table[i])+j
           if(indx >= len(self.cpu.stack)):
@@ -320,6 +402,7 @@ class Minmax4EMU_G(tk.CTk):
           else:
             val = hex(self.cpu.stack[i*len(table[i])+j])
           self.memory_table.edit(i, j, text = val)
+  #----------------------------------------------------------------------------
   #...
   def handle_register_entry(self, frame: Register_Frame):
     if(frame == self.pc_reg_frame):
@@ -340,6 +423,7 @@ class Minmax4EMU_G(tk.CTk):
       self.cpu.port_C = frame.old_value
     elif(frame == self.port_D_frame):
       self.cpu.port_D = frame.old_value
+  #----------------------------------------------------------------------------
   #...
   def update_registers(self):
     """
@@ -366,6 +450,7 @@ class Minmax4EMU_G(tk.CTk):
       self.port_D_frame.update_register(self.cpu.port_D)
       self.port_log_textbox.insert(tk.END, f"Port D: {self.cpu.port_D}, {hex(self.cpu.port_D)}, '{chr(self.cpu.port_D)}'\n")
     self.port_log_textbox.see(tk.END)
+  #----------------------------------------------------------------------------
 
 if(__name__ == "__main__"):
   cpu = MINMAX4("Examples/Hello_World")
