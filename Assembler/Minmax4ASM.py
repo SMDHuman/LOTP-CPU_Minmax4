@@ -309,6 +309,9 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
           values += [0]*BYTE_LENGHT
         else:
           values += split_bytes(branches[tokens.next().word], BYTE_LENGHT)
+      elif(tokens.current().word == "_HERE_"):
+        values += split_bytes(len(ROM), BYTE_LENGHT)
+        tokens.next()
       elif(tokens.current().word in constants):
         values += constants[tokens.next().word]
       else:

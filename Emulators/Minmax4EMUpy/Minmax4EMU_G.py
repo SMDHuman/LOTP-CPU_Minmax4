@@ -1,5 +1,6 @@
 from Minmax4EMU import MINMAX4
 import customtkinter as tk
+from tkinter.filedialog import askopenfilename
 from CTkTable import *  
 import os, sys
 import keyboard
@@ -94,7 +95,7 @@ class Minmax4EMU_G(tk.CTk):
   def __init__(self, cpu: MINMAX4):
     super().__init__()
     self.title("Minmax4 Emulator GUI")
-    self.geometry("1000x600")
+    self.geometry("1200x600")
     self.cpu = cpu
     self.cpu_running = False
     self.cpu_speed = 1
@@ -145,10 +146,13 @@ class Minmax4EMU_G(tk.CTk):
                                     command=self.handle_cpu_speed)
     self.step_button = tk.CTkButton(self.control_frame, text="Step", command=self.step_cpu)
     self.reset_button = tk.CTkButton(self.control_frame, text="Reset", command=self.handle_cpu_reset)
+    self.load_button = tk.CTkButton(self.control_frame, text="Load Program", command=self.load_handler)
+
     self.run_button.grid(row=0, column=0, padx=5, pady=5)
     self.run_speed.grid(row=0, column=1, padx=5, pady=5)
     self.step_button.grid(row=1, column=0, padx=5, pady=5, columnspan = 2, sticky="ew")
     self.reset_button.grid(row=2, column=0, padx=5, pady=5, columnspan = 2, sticky="ew")
+    self.load_button.grid(row=3, column=0, padx=5, pady=5, columnspan = 2, sticky="ew")
     # -------------------------------------------------------------------------
     # Setup memory frame
     self.memory_table_row = 32
@@ -198,7 +202,7 @@ class Minmax4EMU_G(tk.CTk):
     
     # Port Log
     self.port_log_textbox = tk.CTkTextbox(self.io_frame, width=150)
-    self.port_log_textbox.insert(tk.END, "---- Port Log ----\n")
+    self.port_log_textbox.insert(tk.END, "---- Console Log ----\n")
 
     # Matrix Output
     self.matrix_buffer = [0]*16*16
@@ -258,6 +262,15 @@ class Minmax4EMU_G(tk.CTk):
     self.update_memory_table()
     self.update_memory_table_highlight()
     self.after(100, self.check_keyboard)
+
+  #----------------------------------------------------------------------------
+  def load_handler(self):
+    # Open a file dialog to select a file
+    filename = askopenfilename(initialdir=os.getcwd(), title="Select binary file")
+    Error = self.cpu.load_file(filename)
+    if(Error != None):
+      self.port_log_textbox.insert(tk.END, f"{Error}\n")
+    self.update_memory_table()
   #----------------------------------------------------------------------------
   def check_keyboard(self):
     # Check if the arrow keys are pressed
@@ -332,19 +345,27 @@ class Minmax4EMU_G(tk.CTk):
   def run_button_handler(self):
     self.cpu_running = not self.cpu_running
     if(self.cpu_running):
+      self.run_button.configure(text="Pause")
       self.step_cpu()
+    else:
+      self.run_button.configure(text="Run")
   #----------------------------------------------------------------------------
   def step_cpu(self):
-    self.cpu.tick()
+    for i in range([1, 256][self.cpu_speed <= 0]):
+      self.cpu.tick()
     if(self.cpu.halt):
       self.cpu_running = False
+      self.port_log_textbox.insert(tk.END, "CPU Halted\n")
+      self.port_log_textbox.see(tk.END)
+      self.run_button.configure(text="Run")
     self.update_matrix()
     self.update_registers()
+    #self.update_memory_table()
     if(self.cpu_running):
       if(self.cpu_speed > 0):
         delay = int(1000/self.cpu_speed)
       else:
-        delay = 0
+        delay = 5
       self.after(delay, self.step_cpu)
   #----------------------------------------------------------------------------
   # Handle Memory Table Highlight
@@ -362,6 +383,7 @@ class Minmax4EMU_G(tk.CTk):
   # Handle CPU Reset
   def handle_cpu_reset(self):
     self.cpu_running = False
+    self.run_button.configure(text="Run")
     self.port_log_textbox.insert(tk.END, "----------------------\n")
     self.port_log_textbox.insert(tk.END, "CPU Reseting...\n")
     self.port_log_textbox.insert(tk.END, "----------------------\n")
@@ -392,15 +414,15 @@ class Minmax4EMU_G(tk.CTk):
     if(self.memory_select.get() == "Program"):
       for i in range(1, len(table)):
         for j in range(1, len(table[i])):
-          self.memory_table.edit(i, j, text = hex(self.cpu.read_memory(i*len(table[i])+j))[1:], font = ("Arial", 11))
+          self.memory_table.edit(i, j, text = hex(self.cpu.read_memory((i-1)*(len(table[i])-1)+(j-1)))[1:], font = ("Arial", 11))
     elif(self.memory_select.get() == "Stack"):
       for i in range(1, len(table)):
         for j in range(1, len(table[i])):
-          indx = i*len(table[i])+j
+          indx = (i-1)*(len(table[i])-1)+(j-1)
           if(indx >= len(self.cpu.stack)):
-            val = hex(0)
+            val = hex(0)[1:]
           else:
-            val = hex(self.cpu.stack[i*len(table[i])+j])
+            val = hex(self.cpu.stack[indx])[1:]
           self.memory_table.edit(i, j, text = val)
   #----------------------------------------------------------------------------
   #...
@@ -453,6 +475,6 @@ class Minmax4EMU_G(tk.CTk):
   #----------------------------------------------------------------------------
 
 if(__name__ == "__main__"):
-  cpu = MINMAX4("Examples/Hello_World")
+  cpu = MINMAX4()
   app = Minmax4EMU_G(cpu)
   app.mainloop()

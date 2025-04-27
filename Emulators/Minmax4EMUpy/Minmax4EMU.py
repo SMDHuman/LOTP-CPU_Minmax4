@@ -2,11 +2,22 @@ import sys, os
 import argparse
 
 class MINMAX4():
-  def __init__(self, input_file: str):
+  def __init__(self, input_file: str = None):
+    self.ROM = open("./rom.bin", 'wb+')
+    self.instructions = ["NOP", "MOV", "LOD", "STR", "ADD", "SUB", "AND", "OR", "XOR", "INV", "ROT", "BRC", "PSH", "POP", "IN", "OUT"]
+    self.byte_length = 1
+    self.byte_mask = (1 << (self.byte_length * 8)) - 1
+    #...
+    if(input_file):
+      self.load_file(input_file)
+    else:
+      self.reset()
+
+  def load_file(self, input_file: str) -> str|None:
+    self.reset()
     #...
     if not os.path.isfile(input_file):
-      print(f"Error: File '{input_file}' not found.")
-      sys.exit(1)
+      return(f"Error: File '{input_file}' not found.")
     #...
     magic = "MNMX"
     version = 0x04
@@ -15,40 +26,16 @@ class MINMAX4():
     with open(input_file, 'rb') as f:
       header = f.read(6)
       if header[:4] != magic.encode():
-        print(f"Error: Invalid file format. Expected '{magic}', got '{header.decode()}'")
-        sys.exit(1)
+        return(f"Error: Invalid file format. Expected '{magic}', got '{header.decode()}'")
       if header[4] != version:
-        print(f"Error: Unsupported version. Expected {version}, got {header[4]}")
-        sys.exit(1)
+        return(f"Error: Unsupported version. Expected {version}, got {header[4]}")
       self.byte_length = header[5]
       if self.byte_length < 1:
-        print(f"Error: Invalid byte length. Expected at least 1, got {self.byte_length}")
-        sys.exit(1)
+        return(f"Error: Invalid byte length. Expected at least 1, got {self.byte_length}")
     
       # Read the rest of the file and process it
       self.ROM.write(f.read())
       self.ROM.seek(0)  # Reset the file pointer to the beginning
-    #...
-    self.byte_mask = (1 << (self.byte_length * 8)) - 1
-    #----------------------------------------------------------------------------
-    # Initialize registers and flags
-    self.halt = False
-    self.reg_pc = 0x0000
-    self.reg_r0 = 0x0000
-    self.reg_r1 = 0x0000
-    self.reg_r2 = 0x0000
-    self.carry_flag = False
-    self.port_A = 0x00
-    self.port_B = 0x00
-    self.port_C = 0x00
-    self.port_D = 0x00
-    self.port_A_update = False
-    self.port_B_update = False
-    self.port_C_update = False
-    self.port_D_update = False
-    self.stack = []
-    self.instructions = ["NOP", "MOV", "LOD", "STR", "ADD", "SUB", "AND", "OR", "XOR", "INV", "ROT", "BRC", "PSH", "POP", "IN", "OUT"]
-    #RAM = bytearray(self.byte_mask)
 
   def reset(self):
     self.halt = False
@@ -65,7 +52,7 @@ class MINMAX4():
     self.port_B_update = False
     self.port_C_update = False
     self.port_D_update = False
-    self.stack.clear()
+    self.stack = []
 
   def set_target(self, target, value):
     if target == 0:

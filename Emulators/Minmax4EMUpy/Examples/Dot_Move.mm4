@@ -1,0 +1,167 @@
+;
+
+cursor_x: NOP
+cursor_y: NOP
+cursor_x_old: NOP
+cursor_y_old: NOP
+
+; ---------------------------------------------------------
+main_loop:
+
+    ; Copy cursor position to old ones
+    copy cursor_x_old cursor_x
+    copy cursor_y_old cursor_y
+
+    ; Get input
+    IN r1 b
+
+    ; decrement y when up
+    mov r0 r1
+    and r0 1
+    jmpez up_not
+        call dec_y 
+    up_not:
+
+    ; increment y when down
+    mov r0 r1
+    and r0 2
+    jmpez down_not
+        call inc_y 
+    down_not:
+
+    ; decrement x when up
+    mov r0 r1
+    and r0 4
+    jmpez left_not
+        call dec_x 
+    left_not:
+
+    ; increment x when down
+    mov r0 r1
+    and r0 8
+    jmpez right_not
+        call inc_x 
+    right_not:
+
+    ; Output cursor_y
+    mov r2 cursor_y
+    lod r2 r2
+    out c r2
+    ; Output cursor_x
+    mov r2 cursor_x
+    lod r2 r2
+    out d r2
+
+    ; Draw dot on matrix
+    mov r2 cursor_x
+    lod r1 r2
+    mov r2 cursor_y
+    lod r0 r2
+    rot r0 4
+    and r0 240
+    and r1 15
+    or r0 r1
+    out a r0 
+    ; Clear old dot on matrix
+    mov r2 cursor_x_old
+    lod r1 r2
+    mov r2 cursor_y_old
+    lod r0 r2
+    rot r0 4
+    and r0 240
+    and r1 15
+    or r0 r1
+    out a r0 
+    
+
+
+jmp main_loop
+; ---------------------------------------------------------
+inc_y:
+    psh r1, psh r0
+
+    mov r1 cursor_y
+    lod r0 r1
+    add r0 1
+
+    jmpez inc_y_skip:
+        str r0 r1
+    inc_y_skip:
+    
+    pop r0, pop r1
+return
+; ---------------------------------------------------------
+dec_y:
+    psh r1, psh r0
+
+    mov r1 cursor_y
+    lod r0 r1
+
+    jmpez dec_y_skip
+        sub r0 1
+        str r0 r1
+    dec_y_skip:
+
+    pop r0, pop r1
+return
+; ---------------------------------------------------------
+inc_x:
+    psh r1, psh r0
+
+    mov r1 cursor_x
+    lod r0 r1
+    add r0 1
+
+    jmpez inc_x_skip:
+        str r0 r1
+    inc_x_skip:
+    
+    pop r0, pop r1
+return
+; ---------------------------------------------------------
+dec_x:
+    psh r1, psh r0
+
+    mov r1 cursor_x
+    lod r0 r1
+
+    jmpez dec_x_skip
+        sub r0 1
+        str r0 r1
+    dec_x_skip:
+
+    pop r0, pop r1
+return
+
+; -------------------------------------
+; Macros
+; -------------------------------------
+
+<jmpez <where>
+mov r2 where
+brc ez r2>
+
+<jmp <where>
+mov r2 where
+mov pc r2>
+
+; Use just for 8 bit CPUs
+<call <sub_name>
+  mov r2 _HERE_
+  add r2 8
+  psh r2
+  mov r2 sub_name
+  mov pc r2
+>
+
+<return 
+  pop pc
+>
+
+<copy <to> <from>
+mov r2 from
+lod r1 r2
+mov r2 to
+str r1 r2
+>
+; -------------------------------------
