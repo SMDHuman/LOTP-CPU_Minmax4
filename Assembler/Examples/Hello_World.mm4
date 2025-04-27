@@ -1,7 +1,7 @@
-MOV R0 10
-OUT A R0
-SUB R0 1
-BRC NEZ -3
+
+in r0 c
+add r0 r0 
+out b r0
 
 text = "Hello World"
 

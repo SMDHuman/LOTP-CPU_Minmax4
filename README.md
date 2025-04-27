@@ -23,7 +23,7 @@ A Simple 8 bit RISC-like CPU with expandable data bus. It executes every instruc
 | INV  | 9 | target    | None        | No         | Bitwise not operation on target |
 | ROT  | A | target    | register    | Optional   | Rotate bits to left given ammount by register or immediate data |
 | BRC  | B | condition | register    | Optional   | If condition is true, jump to a address register pointed or make relative jump |
-| PSH  | C | register  | None        | No         | Push register to stack   |
+| PSH  | C | target    | None        | No         | Push target to stack   |
 | POP  | D | target    | None        | No         | Pop stack to target   |
 | IN   | E | target    | port        | No         | Set target value with selected port |
 | OUT  | F | port      | register    | Optional   | Set output value with a register value or immediate data |
@@ -39,7 +39,7 @@ A Simple 8 bit RISC-like CPU with expandable data bus. It executes every instruc
 >   INV R0    ; Inverse all bits to make the value as big as it can 
 >   MOV PC R0 ; Jump to there
 >   ```
-> - Unlike other operations, `PSH` instruction can read PC 
+> - Unlike other operations, `PSH` instruction can read Program Counter register
 
 
 ### Registers and Arguments

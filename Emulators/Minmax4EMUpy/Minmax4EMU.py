@@ -50,6 +50,23 @@ class MINMAX4():
     self.instructions = ["NOP", "MOV", "LOD", "STR", "ADD", "SUB", "AND", "OR", "XOR", "INV", "ROT", "BRC", "PSH", "POP", "IN", "OUT"]
     #RAM = bytearray(self.byte_mask)
 
+  def reset(self):
+    self.halt = False
+    self.reg_pc = 0x0000
+    self.reg_r0 = 0x0000
+    self.reg_r1 = 0x0000
+    self.reg_r2 = 0x0000
+    self.carry_flag = False
+    self.port_A = 0x00
+    self.port_B = 0x00
+    self.port_C = 0x00
+    self.port_D = 0x00
+    self.port_A_update = True
+    self.port_B_update = True
+    self.port_C_update = True
+    self.port_D_update = True
+    self.stack.clear()
+
   def set_target(self, target, value):
     if target == 0:
       self.reg_pc = value & self.byte_mask
