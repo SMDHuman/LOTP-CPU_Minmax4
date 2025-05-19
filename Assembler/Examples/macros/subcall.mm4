@@ -1,4 +1,4 @@
-
+SUBCALL:
 
 <call <sub_name>
   mov r2 sub_name@_ret
@@ -7,7 +7,6 @@
   mov pc r2
   sub_name:@_ret:
 >
-
 <return 
   pop pc
 >

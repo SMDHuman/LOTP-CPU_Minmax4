@@ -1,5 +1,3 @@
-
-
 <'subcall.mm4'>
 <'stdmac.mm4'>
 
@@ -22,15 +20,7 @@ jump memvar_skip
 >
 
 _load_u16:
-  mov 
-
-
-
-
-
-
-
-
+mov r0 r0
 
 ;---------------------------------------
 ; Variables

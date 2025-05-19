@@ -172,7 +172,7 @@ def preprocess_tokens(tokens: list[Token]) -> list[Token]:
   return(new_tokens)
 
 #------------------------------------------------------------------------------
-def parse_macros(tokens: list[Token]) -> tuple[list[list[Token]], list[Token]]:
+def parse_macros(tokens: list[Token], path = None) -> tuple[list[list[Token]], list[Token]]:
   macros = []
   current_macro = []
   new_tokens = []
@@ -194,11 +194,14 @@ def parse_macros(tokens: list[Token]) -> tuple[list[list[Token]], list[Token]]:
       elif(token.type == "STRING"):
         if(token.word not in include_macros):
           include_macros.append(token.word)
-          current_path = "/".join(args.input.split("/")[:-1]) + "/"
-          print("current_path", current_path, __file__)
+          if(path):
+            current_path = "/".join(path.split("/")[:-1]) + "/"
+          else:
+            current_path = "/".join(args.input.split("/")[:-1]) + "/"
+          print("current_path", current_path)
           code = get_input_code(current_path+token.word)
           include_tokens = tokenize_code(code, token.word)
-          include_macros, include_tokens = parse_macros(include_tokens)
+          include_macros, include_tokens = parse_macros(include_tokens, path = current_path+token.word)
           macros += include_macros
           # Add the tokens to the new tokens list
           for i_token in include_tokens:
@@ -400,7 +403,7 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
           if(tokens.current().word.upper() in arg_consts):
             byte |= (arg_consts[tokens.next().word.upper()] << 4)
           else:
-            error(f"Unknown argument '{tokens.current().word}' at line {header.line}.")
+            error(f"Unknown argument '{tokens.current().word}' at '{header.file}' line {header.line}.")
         # Argument 2
         if(header.word.upper() not in ["INV", "PSH", "POP", "NOP"]):
           if(header.word.upper() in ["LOD", "STR"]):
