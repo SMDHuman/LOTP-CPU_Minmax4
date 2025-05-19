@@ -3,7 +3,6 @@ import customtkinter as tk
 from tkinter.filedialog import askopenfilename
 from CTkTable import *  
 import os, sys
-import keyboard
 
 SQUARE = '█'
 CIRCLE = '⚫'
@@ -94,6 +93,7 @@ class Minmax4EMU_G(tk.CTk):
   And it also provides some input and output methods for the cpu.
   """
   def __init__(self, cpu: MINMAX4):
+    tk.set_appearance_mode("Dark") 
     super().__init__()
     self.title("Minmax4 Emulator GUI")
     self.geometry("1200x600")
@@ -210,7 +210,7 @@ class Minmax4EMU_G(tk.CTk):
     # Matrix Output
     self.matrix_buffer = [0]*16*16
     self.matrix_frame = tk.CTkFrame(self.io_frame)
-    self.matrix_label = tk.CTkLabel(self.matrix_frame, text="", text_color="black")
+    self.matrix_label = tk.CTkLabel(self.matrix_frame, text="", text_color="white")
     self.matrix_label.pack(side=tk.LEFT, padx=5, pady=5)
     self.matrix_info_frame = tk.CTkFrame(self.matrix_frame)
     self.matrix_port_select = tk.CTkOptionMenu(self.matrix_info_frame,
@@ -264,7 +264,10 @@ class Minmax4EMU_G(tk.CTk):
     # Update Things
     self.update_memory_table()
     self.update_memory_table_highlight()
-    self.after(100, self.check_keyboard)
+    #self.after(100, self.check_keyboard)
+    self.kbi_up, self.kbi_down, self.kbi_left, self.kbi_right = False, False, False, False
+    self.bind("<Key>", self.key_event)
+    self.bind("<KeyRelease>", self.key_event)
 
   #----------------------------------------------------------------------------
   def reload_handler(self):
@@ -283,32 +286,35 @@ class Minmax4EMU_G(tk.CTk):
       self.current_filename = None
     self.update_memory_table()
   #----------------------------------------------------------------------------
-  def check_keyboard(self):
-    # Check if the arrow keys are pressed
-    up = keyboard.is_pressed("up")
-    down = keyboard.is_pressed("down")
-    left = keyboard.is_pressed("left")
-    right = keyboard.is_pressed("right")
+  def key_event(self, event):
+    match event.keysym:
+      case "Up":
+        self.kbi_up = (event.type == "2")
+      case "Down":
+        self.kbi_down = (event.type == "2")
+      case "Left":
+        self.kbi_left = (event.type == "2")
+      case "Right":
+        self.kbi_right = (event.type == "2")  
     # Update the table based on the arrow keys pressed
-    if(up): self.controller_keypad.select(0, 1)
+    if(self.kbi_up): self.controller_keypad.select(0, 1)
     else: self.controller_keypad.deselect(0, 1)
-    if(down): self.controller_keypad.select(2, 1)
+    if(self.kbi_down): self.controller_keypad.select(2, 1)
     else: self.controller_keypad.deselect(2, 1)
-    if(left): self.controller_keypad.select(1, 0)
+    if(self.kbi_left): self.controller_keypad.select(1, 0)
     else: self.controller_keypad.deselect(1, 0)
-    if(right): self.controller_keypad.select(1, 2)
+    if(self.kbi_right): self.controller_keypad.select(1, 2)
     else: self.controller_keypad.deselect(1, 2)
-    #...
+    ##...
     value = self.port_frames[self.controller_port_select.get()].old_value
     if(self.controller_uplow_select.get() == "Higher"):
       value = value & 0x0F
-      value = up<<4 | down<<5 | left<<6 | right<<7
+      value = self.kbi_up<<4 | self.kbi_down<<5 | self.kbi_left<<6 | self.kbi_right<<7
     else:
       value = value & 0xF0
-      value = up<<0 | down<<1 | left<<2 | right<<3
+      value = self.kbi_up<<0 | self.kbi_down<<1 | self.kbi_left<<2 | self.kbi_right<<3
     self.port_frames[self.controller_port_select.get()].update_register(value)
-    #...
-    self.after(100, self.check_keyboard)
+    ##...
   #----------------------------------------------------------------------------
   def clear_matrix(self):
     # Clear the matrix buffer

@@ -1,4 +1,5 @@
 <'macros/subcall.mm4'>
+<'macros/stdmac.mm4'>
 
 mov r0 1
 mov r1 2
@@ -8,7 +9,7 @@ out a r0
 out a r1
 out a r2
 
-sub_call hey
+call hey
 
 out a r0
 out a r1
@@ -23,4 +24,4 @@ hey:
   out a 'H'
   out a 'E'
   out a 'Y'
-sub_return 
+return 

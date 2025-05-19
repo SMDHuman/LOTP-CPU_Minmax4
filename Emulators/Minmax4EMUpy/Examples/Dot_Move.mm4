@@ -145,13 +145,12 @@ brc ez r2>
 mov r2 where
 mov pc r2>
 
-; Use just for 8 bit CPUs
 <call <sub_name>
-  mov r2 _HERE_
-  add r2 8
+  mov r2 sub_name@_ret
   psh r2
   mov r2 sub_name
   mov pc r2
+  sub_name:@_ret:
 >
 
 <return 

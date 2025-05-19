@@ -72,6 +72,8 @@ def tokenize_code(input_code: str, file_name: str = "main") -> list[Token]:
           tokens.append(Token(current_line, "MACRO_END", ">"))
         if(char == "#"):
           tokens.append(Token(current_line, "INDEX", "#"))
+        if(char == "@"):
+          tokens.append(Token(current_line, "MERGE", "@"))
         if(char == "'"):
           current_token_type = "STRING_SINGLE"
         if(char == '"'):
@@ -147,6 +149,28 @@ def tokenize_code(input_code: str, file_name: str = "main") -> list[Token]:
   for token in tokens:
     token.file = file_name
   return(tokens)
+
+#------------------------------------------------------------------------------
+def preprocess_tokens(tokens: list[Token]) -> list[Token]:
+  #---------------------------------------
+  # Preprocess the tokens
+  #---------------------------------------
+  new_tokens = []
+  reader = Token_Reader(tokens)
+
+  while(reader.current() != None):
+    # Merge tokens if they are adjacent with "@"
+    if(reader.current().type == "MERGE"):
+      if(reader.peek(-1).type == reader.peek(1).type):
+        new_tokens.pop()
+        new_tokens.append(Token(reader.current().line, reader.peek(1).type, reader.peek(-1).word + reader.peek(1).word))
+        reader.next()
+    else:
+      new_tokens.append(reader.current())
+    reader.next()
+  #...
+  return(new_tokens)
+
 #------------------------------------------------------------------------------
 def parse_macros(tokens: list[Token]) -> tuple[list[list[Token]], list[Token]]:
   macros = []
@@ -170,7 +194,8 @@ def parse_macros(tokens: list[Token]) -> tuple[list[list[Token]], list[Token]]:
       elif(token.type == "STRING"):
         if(token.word not in include_macros):
           include_macros.append(token.word)
-          current_path = "\\".join(args.input.split("\\")[:-1]) + "\\"
+          current_path = "/".join(args.input.split("/")[:-1]) + "/"
+          print("current_path", current_path, __file__)
           code = get_input_code(current_path+token.word)
           include_tokens = tokenize_code(code, token.word)
           include_macros, include_tokens = parse_macros(include_tokens)
@@ -236,6 +261,32 @@ def apply_macros(macros: list[list[Token]], tokens: list[Token]) -> list[Token]:
   return(new_tokens)
 
 #------------------------------------------------------------------------------
+class Token_Reader:
+  def __init__(self, tokens: list[Token]):
+    self.tokens = tokens
+    self.index = 0
+
+  def __len__(self) -> int:
+    return(len(self.tokens))
+  
+  def peek(self, n: int = 0) -> Token:
+    if(self.index+n >= len(self.tokens)):
+      return(None)
+    return(self.tokens[self.index+n])
+
+  def current(self) -> Token:
+    if(self.index >= len(self.tokens)):
+      return(None)
+    return(self.tokens[self.index])
+
+  def next(self) -> Token:
+    if(self.index >= len(self.tokens)):
+      return(None)
+    token = self.tokens[self.index]
+    self.index += 1
+    return(token)
+
+#------------------------------------------------------------------------------
 def generate_bytes(tokens: list[Token]) -> bytearray:
   # Constants
   instructions = {"NOP":0, "MOV":1, "LOD":2, "STR":3, "ADD":4, 
@@ -253,25 +304,6 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
     if(token.type == "BRANCH"):
       branches[token.word] = -1
   
-  class Token_Reader:
-    def __init__(self, tokens: list[Token]):
-      self.tokens = tokens
-      self.index = 0
-
-    def __len__(self) -> int:
-      return(len(self.tokens))
-
-    def current(self) -> Token:
-      if(self.index >= len(self.tokens)):
-        return(None)
-      return(self.tokens[self.index])
-
-    def next(self) -> Token:
-      if(self.index >= len(self.tokens)):
-        return(None)
-      token = self.tokens[self.index]
-      self.index += 1
-      return(token)
   #...
   def error(msg: str) -> None:
     print(f"Error: {msg}")
@@ -444,6 +476,7 @@ if __name__ == "__main__":
   tokens = tokenize_code(input_code)
   macros, tokens = parse_macros(tokens)
   tokens = apply_macros(macros, tokens)
+  tokens = preprocess_tokens(tokens)
   #...
   if(DEBUG_MODE):
     print("Tokens:")
