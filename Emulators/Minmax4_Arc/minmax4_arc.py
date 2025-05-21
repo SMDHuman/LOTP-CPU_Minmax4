@@ -17,22 +17,30 @@
 #   128-255: Special sounds
 # ----------------------------------------------------------------------------- 
 import sys, os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from Minmax4EMUpy import Minmax4EMU
-
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from Emulators.Minmax4EMUpy import Minmax4EMU
+from Assembler.Minmax4ASM import assembler
 import pygame as pg
+import datetime, time
 
 class Minmax4Arc:
   #----------------------------------------------------------------------------
   # Initialize the emulator
   def __init__(self):
     pg.init()
-    self.win = pg.display.set_mode((640, 480))
+    self.win = pg.display.set_mode((640, 640))
     self.clock = pg.time.Clock()
     self.running = True
 
+    byte_code = assembler("/home/smd_human/Documents/Projects/LOTP-CPU_Minmax4/Emulators/Minmax4_Arc/Programs/Displat_Test.mm4")
+
     self.cpu = Minmax4EMU.MINMAX4()
+    self.cpu.load_bytes(byte_code)
     self.cpu.set_output_callback(self.handle_cpu_outputs)
+
+    self.display = pg.Surface((64, 64))
+    self.display_lower_input = 0
+    self.display_pallet = []
   #----------------------------------------------------------------------------
   # Handle events
   def handle_events(self):
@@ -42,7 +50,29 @@ class Minmax4Arc:
 
   #----------------------------------------------------------------------------
   def handle_cpu_outputs(self, port, value):
-    pass
+    # Log the output to the console
+    timeinfo = datetime.datetime.now().strftime('%H:%M:%S')
+    millis = int(round(time.time() * 1000)) % 1000
+    print(f"{timeinfo}.{millis} - Port: {port}, Value: {value}")
+
+    # Handle the output based on the port
+    if(port == 1):
+      if(len(self.display_pallet) < 16):
+        r, g, b = value & 0x7, (value >> 3) & 0x7, (value >> 6) & 0x3
+        r = int(r * 255 / 7)
+        g = int(g * 255 / 7)
+        b = int(b * 255 / 3)
+        self.display_pallet.append((r, g, b))
+      else:
+        self.display_lower_input = value
+    elif(port == 2):
+      color = self.display_lower_input & 0x0F
+      x = ((value & 0x3) << 4) | ((self.display_lower_input & 0xF0) >> 4)
+      y = value >> 2
+      print(f"X: {x}, Y: {y}, Color: {color}")
+      self.display.set_at((x, y), self.display_pallet[color])
+      self.win.blit(pg.transform.scale(self.display, self.win.get_size()), (0, 0))
+    
 
   #----------------------------------------------------------------------------
   # Main loop
@@ -52,8 +82,8 @@ class Minmax4Arc:
       self.cpu.tick()
       #self.win.fill((0, 0, 0))
 
-      #pg.display.flip()
-      #self.clock.tick(60)
+      pg.display.flip()
+      self.clock.tick(60)
     pg.quit()
 
 if __name__ == "__main__":

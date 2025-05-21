@@ -467,6 +467,20 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
   #...
   return(ROM)
 
+def assembler(input_file: str, byte_lenght = 1, debug_mode = False) -> bytearray:
+  global BYTE_MASK, BYTE_LENGHT, DEBUG_MODE
+  DEBUG_MODE = debug_mode
+  BYTE_LENGHT = byte_lenght
+  BYTE_MASK= (1 << (BYTE_LENGHT * 8)) - 1
+
+  input_code = get_input_code(input_file)
+  tokens = tokenize_code(input_code)
+  macros, tokens = parse_macros(tokens)
+  tokens = apply_macros(macros, tokens)
+  tokens = preprocess_tokens(tokens)
+  ROM = generate_bytes(tokens)
+  return(ROM)
+
 #------------------------------------------------------------------------------
 if __name__ == "__main__":
   args = parse_cmd_arguments()

@@ -38,6 +38,12 @@ class MINMAX4():
       self.ROM.write(f.read())
       self.ROM.seek(0)  # Reset the file pointer to the beginning
 
+  def load_bytes(self, bytes_data: bytes):
+    self.reset()
+    
+    self.ROM.seek(0)  # Reset the file pointer to the beginning
+    self.ROM.write(bytes_data)
+
   def reset(self):
     self.halt = False
     self.reg_pc = 0x0000
@@ -110,15 +116,19 @@ class MINMAX4():
     if port == 0:
       self.port_A = (self.port_A << 8 | (value & 0xFF)) & self.byte_mask
       self.port_A_update = True
+      self.output_cb(0, self.port_A)
     elif port == 1:
       self.port_B = (self.port_B << 8 | (value & 0xFF)) & self.byte_mask
       self.port_B_update = True
+      self.output_cb(1, self.port_B)
     elif port == 2:
       self.port_C = (self.port_C << 8 | (value & 0xFF)) & self.byte_mask
       self.port_C_update = True
+      self.output_cb(2, self.port_C)
     elif port == 3:
       self.port_D = (self.port_D << 8 | (value & 0xFF)) & self.byte_mask
       self.port_D_update = True
+      self.output_cb(3, self.port_D)
   
   def get_port(self, port):
     if port == 0:
