@@ -7,6 +7,7 @@ class MINMAX4():
     self.instructions = ["NOP", "MOV", "LOD", "STR", "ADD", "SUB", "AND", "OR", "XOR", "INV", "ROT", "BRC", "PSH", "POP", "IN", "OUT"]
     self.byte_length = 1
     self.byte_mask = (1 << (self.byte_length * 8)) - 1
+    self.output_cb: callable = None
     #...
     if(input_file):
       self.load_file(input_file)
@@ -88,16 +89,23 @@ class MINMAX4():
     if port == 0:
       self.port_A = value & self.byte_mask
       self.port_A_update = True
+      self.output_cb(0, self.port_A)
     elif port == 1:
       self.port_B = value & self.byte_mask
       self.port_B_update = True
+      self.output_cb(1, self.port_B)
     elif port == 2:
       self.port_C = value & self.byte_mask
       self.port_C_update = True
+      self.output_cb(2, self.port_C)
     elif port == 3:
       self.port_D = value & self.byte_mask
       self.port_D_update = True
+      self.output_cb(3, self.port_D)
 
+  def set_output_callback(self, callback: callable):
+    self.output_cb = callback
+  
   def push_port(self, port, value):
     if port == 0:
       self.port_A = (self.port_A << 8 | (value & 0xFF)) & self.byte_mask
