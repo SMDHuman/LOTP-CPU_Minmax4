@@ -11,6 +11,8 @@
 #   first 4 bits: Colors
 #   next 6 bits: X position
 #   next 6 bits: Y position
+#   First incoming 16 byte of data from PORT B is the color palette
+#   with the color format of BBGGGRRR
 #  PORT D Speaker:
 #   0 : no sound
 #   1-127: MIDI Notes (A0 TO G9)
@@ -33,7 +35,7 @@ class Minmax4Arc:
     self.running = True
 
     byte_code = assembler("/home/smd_human/Documents/Projects/LOTP-CPU_Minmax4/Emulators/Minmax4_Arc/Programs/Displat_Test.mm4")
-
+    print("Size of byte code: ", len(byte_code))
     self.cpu = Minmax4EMU.MINMAX4()
     self.cpu.load_bytes(byte_code)
     self.cpu.set_output_callback(self.handle_cpu_outputs)
@@ -69,21 +71,25 @@ class Minmax4Arc:
       color = self.display_lower_input & 0x0F
       x = ((value & 0x3) << 4) | ((self.display_lower_input & 0xF0) >> 4)
       y = value >> 2
-      print(f"X: {x}, Y: {y}, Color: {color}")
+      #print(f"X: {x}, Y: {y}, Color: {color}")
       self.display.set_at((x, y), self.display_pallet[color])
-      self.win.blit(pg.transform.scale(self.display, self.win.get_size()), (0, 0))
-    
+      self.win.blit(pg.transform.scale(self.display, self.win.get_size()), (0, 0))    
+      pg.display.flip()
 
   #----------------------------------------------------------------------------
   # Main loop
   def run(self):
     while self.running:
       self.handle_events()
-      self.cpu.tick()
+      if(not self.cpu.halt):
+        self.cpu.tick()
+        if(self.cpu.halt):
+          print("CPU halted")
       #self.win.fill((0, 0, 0))
 
-      pg.display.flip()
-      self.clock.tick(60)
+        
+
+      #self.clock.tick(60)
     pg.quit()
 
 if __name__ == "__main__":

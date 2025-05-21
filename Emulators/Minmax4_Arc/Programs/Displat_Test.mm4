@@ -1,21 +1,39 @@
-; Pushing Pallet
-out b 0
-out b 3
-out b 12
-out b 15
-out b 48
-out b 51
-out b 60
-out b 63
-out b 192
-out b 195
-out b 204
-out b 207
-out b 240
-out b 243
-out b 252
-out b 255
-; Pallet End
+<'Color_Pallets/regular_rgb.mm4'>
+<'stdmac.mm4'>
 
-out b 113
-out c 28
+put_at_imm 4 4 15
+put_at_imm 8 8 15
+put_at_imm 16 16 15
+halt
+
+
+<put_at_imm <_x> <_y> <_color>
+mov r2 _y, psh r2 ; Y
+mov r2 _x, psh r2 ; X
+mov r2 _color, psh r2 ; Color
+call8 DISPLAY_PUT_AT
+>
+
+; args: y, x, color
+DISPLAY_PUT_AT:
+  pop r2; save return pointer
+  ; First Byte
+  pop r0
+  and r0 0b00001111
+  pop r1
+  psh r1
+  and r1 0b00001111
+  rot r1 4
+  or r0 r1
+  out b r0
+  ; Second Byte
+  pop r0 
+  and r0 0b00110000
+  rot r0 4
+  pop r1 
+  and r1 0b00111111
+  rot r1 2
+  or r0 r1
+  out c r0
+  psh r2 ; restore return pointer
+return

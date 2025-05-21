@@ -249,7 +249,9 @@ def apply_macros(macros: list[list[Token]], tokens: list[Token]) -> list[Token]:
           macro_args[macro_token.word] = tokens[i+j+1]
         elif(macro_token.word in macro_args):
           new_token = macro_args[macro_token.word]
-          applied_tokens.append(Token(token.line, macro_token.type, new_token.word))
+          if(macro_token.type == "BRANCH"):
+            new_token.type = "BRANCH"
+          applied_tokens.append(Token(token.line, new_token.type, new_token.word))
         else:
           applied_tokens.append(Token(token.line, macro_token.type, macro_token.word))
       new_tokens += apply_macros(macros, applied_tokens)
@@ -332,7 +334,9 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
     values = []
     #...
     if(tokens.current().type == "VALUE"):
-      if(tokens.current().word.isnumeric()):
+      if(tokens.current().word.isnumeric() or 
+         (tokens.current().word.startswith("0x")) or
+         (tokens.current().word.startswith("0b") and tokens.current().word[2:].isnumeric())):
         values += split_bytes(int(tokens.next().word, 0), BYTE_LENGHT)
       else:
         error(f"Invalid value '{tokens.current().word}' at line {tokens.current().line}.")
@@ -350,7 +354,7 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
       elif(tokens.current().word in constants):
         values += constants[tokens.next().word]
       else:
-        error(f"Unknown constant '{tokens.current().word}' at line {tokens.current().line}.")
+        error(f"Unknown constant '{tokens.current()}' at line {tokens.current().line}.")
     #...
     elif(tokens.current().type == "STRING"):
       values += [ord(c) for c in tokens.next().word]
@@ -475,7 +479,7 @@ def assembler(input_file: str, byte_lenght = 1, debug_mode = False) -> bytearray
 
   input_code = get_input_code(input_file)
   tokens = tokenize_code(input_code)
-  macros, tokens = parse_macros(tokens)
+  macros, tokens = parse_macros(tokens, path = input_file)
   tokens = apply_macros(macros, tokens)
   tokens = preprocess_tokens(tokens)
   ROM = generate_bytes(tokens)

@@ -1,5 +1,5 @@
 ; Standart Macros
-; Version 1.1
+; Version 1.2
 
 <push_regs psh r0, psh r1 psh, r2>
 <pop_regs pop r2, pop r1 pop, r0>
@@ -11,12 +11,13 @@
 <jump <name> psh r2, mov r2 name, mov pc r2>
 <land <name> name: pop r2>
 
-<call <sub_name>
-  mov r2 sub_name@_ret
+<call8 <sub_name>
+  mov r2 _HERE_
+  add r2 8
   psh r2
   mov r2 sub_name
   mov pc r2
-  sub_name:@_ret:
+  ; Returns here
 >
 <return 
   pop pc
