@@ -11,6 +11,7 @@ def parse_cmd_arguments() -> argparse.Namespace:
   parser.add_argument('output', type=str, help='Output file path', default="-", nargs='?')
   parser.add_argument('-b', "--bytes", type=int, help='Length of the data bus in bytes')
   parser.add_argument('-d', "--debug", action='store_true', help='Enable debug mode')
+  parser.add_argument('-f', "--bytefill", action='store_true', help='Enable byte filling for mov operations')
   
   return(parser.parse_args())
 #------------------------------------------------------------------------------
@@ -78,6 +79,10 @@ def tokenize_code(input_code: str, file_name: str = "main") -> list[Token]:
           current_token_type = "STRING_SINGLE"
         if(char == '"'):
           current_token_type = "STRING_DOUBLE"
+        if(char == "{"):
+          tokens.append(Token(current_line, "SCOPE_START", "{"))
+        if(char == "}"):
+          tokens.append(Token(current_line, "SCOPE_END", "}"))
         if(char == "["):
           in_list = True
           tokens.append(Token(current_line, "LIST_START", "["))
@@ -298,16 +303,22 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
                   "SUB":5, "AND":6, "OR":7, "XOR":8, "INV":9, 
                   "ROT":10, "BRC":11, "PSH":12, "POP":13, "IN":14, "OUT":15}
   constants: dict[str, list[int]] = {}
+  constant_levels: dict[str, int] = {}
   arg_consts: dict[str, list[int]] = {"PC": 0, "R0": 1, "R1": 2, "R2": 3, 
                                      "CF": 0, "EZ": 1, "NCF": 2, "NEZ": 3,
                                      "A": 0, "B": 1, "C": 2, "D": 3}
   branches: dict[str, list[int]] = {}
   branches_fill_later: dict[int, str] = {}
 
+  scope_level = 0
+
   #...
   for i, token in enumerate(tokens):
     if(token.type == "BRANCH"):
-      branches[token.word] = -1
+      if(token.word in branches):
+        error(f"Branch '{token.word}' already defined at line {token.line}.")
+      else:
+        branches[token.word] = -1
   
   #...
   def error(msg: str) -> None:
@@ -332,12 +343,13 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
   #...
   def eval_values(tokens: Token_Reader) -> list[int]:
     values = []
+    value_len = [1, BYTE_LENGHT][AUTOGEN_BYTEFILL]
     #...
     if(tokens.current().type == "VALUE"):
       if(tokens.current().word.isnumeric() or 
          (tokens.current().word.startswith("0x")) or
          (tokens.current().word.startswith("0b") and tokens.current().word[2:].isnumeric())):
-        values += split_bytes(int(tokens.next().word, 0), BYTE_LENGHT)
+        values += split_bytes(int(tokens.next().word, 0), value_len)
       else:
         error(f"Invalid value '{tokens.current().word}' at line {tokens.current().line}.")
     #...
@@ -345,11 +357,11 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
       if(tokens.current().word in branches):
         if(branches[tokens.current().word] == -1):
           branches_fill_later[len(ROM)] = tokens.next().word
-          values += [0]*BYTE_LENGHT
+          values += [0]*value_len
         else:
-          values += split_bytes(branches[tokens.next().word], BYTE_LENGHT)
+          values += split_bytes(branches[tokens.next().word], value_len)
       elif(tokens.current().word == "_HERE_"):
-        values += split_bytes(len(ROM), BYTE_LENGHT)
+        values += split_bytes(len(ROM), value_len)
         tokens.next()
       elif(tokens.current().word in constants):
         values += constants[tokens.next().word]
@@ -385,6 +397,21 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
   ROM = bytearray()
   # Loop through the tokens and generate the ROM
   while(tokens.current() != None):
+    if(tokens.current().type == "SCOPE_START"):
+      scope_level += 1
+      tokens.next()
+    elif(tokens.current().type == "SCOPE_END"):
+      # Check if the scope level is valid
+      if(scope_level < 0):
+        error(f"Unmatched '}}' at line {tokens.current().line}.")
+      # Delete all constants in earlier scope
+      for key in list(constant_levels.keys()):
+        if(constant_levels[key] >= scope_level):
+          del constant_levels[key]
+          del constants[key]
+      # Exit the scope
+      scope_level -= 1
+      tokens.next()
     #---------------------------------------
     if(tokens.current().type == "SEPARATOR"):
       tokens.next()
@@ -397,6 +424,7 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
       #...
       if(tokens.current().type == "ASSIGN"):
         tokens.next()
+        constant_levels[header.word] = scope_level
         constants[header.word] = eval_values(tokens)
       #...
       elif(header.word.upper() in instructions):
@@ -447,8 +475,8 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
     if(branches[branches_fill_later[branch]] == -1):
       error(f"Branch '{branches_fill_later[branch]}' not found.")
     #...
-    value = split_bytes(branches[branches_fill_later[branch]], BYTE_LENGHT)[::-1]
-    for i in range(BYTE_LENGHT):
+    value = split_bytes(branches[branches_fill_later[branch]], [1, BYTE_LENGHT][AUTOGEN_BYTEFILL])[::-1]
+    for i in range([1, BYTE_LENGHT][AUTOGEN_BYTEFILL]):
       ROM[branch+(i*2)+1] = value[i]
   #...
   if(DEBUG_MODE):
@@ -471,11 +499,12 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
   #...
   return(ROM)
 
-def assembler(input_file: str, byte_lenght = 1, debug_mode = False) -> bytearray:
-  global BYTE_MASK, BYTE_LENGHT, DEBUG_MODE
+def assembler(input_file: str, byte_lenght = 1, debug_mode = False, bytefill = False) -> bytearray:
+  global BYTE_MASK, BYTE_LENGHT, DEBUG_MODE, AUTOGEN_BYTEFILL
   DEBUG_MODE = debug_mode
   BYTE_LENGHT = byte_lenght
   BYTE_MASK= (1 << (BYTE_LENGHT * 8)) - 1
+  AUTOGEN_BYTEFILL = bytefill
 
   input_code = get_input_code(input_file)
   tokens = tokenize_code(input_code)
@@ -492,6 +521,7 @@ if __name__ == "__main__":
   BYTE_LENGHT = args.bytes if args.bytes else 1
   BYTE_MASK = (1 << (BYTE_LENGHT * 8)) - 1
   DEBUG_MODE = args.debug
+  AUTOGEN_BYTEFILL = args.bytefill
   #...
   input_code = get_input_code(args.input)
   tokens = tokenize_code(input_code)

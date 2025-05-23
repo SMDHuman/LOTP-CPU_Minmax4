@@ -3,7 +3,7 @@ import argparse
 
 class MINMAX4():
   def __init__(self, input_file: str = None):
-    self.ROM = open("./rom.bin", 'wb+')
+    self.ROM: dict = {}
     self.instructions = ["NOP", "MOV", "LOD", "STR", "ADD", "SUB", "AND", "OR", "XOR", "INV", "ROT", "BRC", "PSH", "POP", "IN", "OUT"]
     self.byte_length = 1
     self.byte_mask = (1 << (self.byte_length * 8)) - 1
@@ -23,7 +23,7 @@ class MINMAX4():
     magic = "MNMX"
     version = 0x04
     self.byte_length = 0
-    self.ROM = open("./rom.bin", 'wb+')
+    self.ROM.clear()
     with open(input_file, 'rb') as f:
       header = f.read(6)
       if header[:4] != magic.encode():
@@ -35,14 +35,15 @@ class MINMAX4():
         return(f"Error: Invalid byte length. Expected at least 1, got {self.byte_length}")
     
       # Read the rest of the file and process it
-      self.ROM.write(f.read())
-      self.ROM.seek(0)  # Reset the file pointer to the beginning
+      for i, data in enumerate(f.read()):
+        self.ROM[i] = data
 
   def load_bytes(self, bytes_data: bytes):
     self.reset()
     
-    self.ROM.seek(0)  # Reset the file pointer to the beginning
-    self.ROM.write(bytes_data)
+    self.ROM.clear()
+    for i, data in enumerate(bytes_data):
+      self.ROM[i] = data
 
   def reset(self):
     self.halt = False
@@ -143,20 +144,15 @@ class MINMAX4():
   def read_memory(self, address) -> int:
     if address < 0 or address > self.byte_mask:
       raise ValueError("Address out of range")
-    elif(address >= self.ROM.__sizeof__()):
-      return(0x00)
-    self.ROM.seek(address)
-    val = self.ROM.read(1)
-    if(val == b''):
+    elif(address not in self.ROM):
       return(0x00)
     else:
-      return val[0]
+      return self.ROM[address]
   
   def write_memory(self, address, value):
     if address < 0 or address >= self.byte_mask:
       raise ValueError("Address out of range")
-    self.ROM.seek(address)
-    self.ROM.write(bytes([value & 0xFF]))
+    self.ROM[address] = bytes([value & 0xFF])
   
   def advence_pc(self, offset = 1):
     if(offset + self.reg_pc > self.byte_mask):
@@ -333,18 +329,9 @@ class MINMAX4():
 
 if( __name__ == "__main__"):
   mm4 = MINMAX4("../Assembler/Examples/Hello_World_db")
-  # Print content of the ROM
-  for i in range(0, mm4.byte_mask):
-    mm4.ROM.seek(i)
-    byte = mm4.ROM.read(1)
-    if byte == b'':
-      break
-    print(f"Address: {i:04X}, Value: {byte[0]:02X}")
   while not mm4.halt:
     mm4.tick()
     #print(f"PC: {mm4.reg_pc:04X}, R0: {mm4.reg_r0:04X}, R1: {mm4.reg_r1:04X}, R2: {mm4.reg_r2:04X}, CF: {mm4.carry_flag}")
     if(mm4.port_A_update):
       print(f"Port A: {mm4.port_A}, {chr(mm4.port_A)}")
     #input("Press Enter to continue...")
-  mm4.ROM.close()
-  os.remove("./rom.bin")
