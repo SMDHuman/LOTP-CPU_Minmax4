@@ -34,7 +34,7 @@ class Minmax4Arc:
     self.clock = pg.time.Clock()
     self.running = True
 
-    byte_code = assembler("/home/smd_human/Documents/Projects/LOTP-CPU_Minmax4/Emulators/Minmax4_Arc/Programs/Displat_Test.mm4", byte_lenght=2)
+    byte_code = assembler("Programs/Displat_Test.mm4", byte_lenght=2)
     
     print("Size of byte code: ", len(byte_code))
     self.cpu = Minmax4EMU.MINMAX4()
