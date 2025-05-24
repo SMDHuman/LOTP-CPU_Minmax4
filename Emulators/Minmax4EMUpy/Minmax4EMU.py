@@ -2,17 +2,15 @@ import sys, os
 import argparse
 
 class MINMAX4():
-  def __init__(self, input_file: str = None):
+  def __init__(self, input_file: str = None, register_size: int = 1):
     self.ROM: dict = {}
-    self.instructions = ["NOP", "MOV", "LOD", "STR", "ADD", "SUB", "AND", "OR", "XOR", "INV", "ROT", "BRC", "PSH", "POP", "IN", "OUT"]
-    self.byte_length = 1
-    self.byte_mask = (1 << (self.byte_length * 8)) - 1
+    self.register_size = register_size
+    self.register_mask = (1 << (self.register_size * 8)) - 1
     self.output_cb: callable = None
     #...
+    self.reset()
     if(input_file):
       self.load_file(input_file)
-    else:
-      self.reset()
 
   def load_file(self, input_file: str) -> str|None:
     self.reset()
@@ -22,7 +20,7 @@ class MINMAX4():
     #...
     magic = "MNMX"
     version = 0x04
-    self.byte_length = 0
+    self.register_size = 0
     self.ROM.clear()
     with open(input_file, 'rb') as f:
       header = f.read(6)
@@ -30,9 +28,9 @@ class MINMAX4():
         return(f"Error: Invalid file format. Expected '{magic}', got '{header.decode()}'")
       if header[4] != version:
         return(f"Error: Unsupported version. Expected {version}, got {header[4]}")
-      self.byte_length = header[5]
-      if self.byte_length < 1:
-        return(f"Error: Invalid byte length. Expected at least 1, got {self.byte_length}")
+      self.register_size = header[5]
+      if self.register_size < 1:
+        return(f"Error: Invalid byte length. Expected at least 1, got {self.register_size}")
     
       # Read the rest of the file and process it
       for i, data in enumerate(f.read()):
@@ -40,7 +38,6 @@ class MINMAX4():
 
   def load_bytes(self, bytes_data: bytes):
     self.reset()
-    
     self.ROM.clear()
     for i, data in enumerate(bytes_data):
       self.ROM[i] = data
@@ -64,23 +61,13 @@ class MINMAX4():
 
   def set_target(self, target, value):
     if target == 0:
-      self.reg_pc = value & self.byte_mask
+      self.reg_pc = value & self.register_mask
     elif target == 1:
-      self.reg_r0 = value & self.byte_mask
+      self.reg_r0 = value & self.register_mask
     elif target == 2:
-      self.reg_r1 = value & self.byte_mask
+      self.reg_r1 = value & self.register_mask
     elif target == 3:
-      self.reg_r2 = value & self.byte_mask
-
-  def push_target(self, target, value):
-    if target == 0:
-      self.reg_pc = (self.reg_pc + (value & 0xFF)) & self.byte_mask
-    elif target == 1:
-      self.reg_r0 = (self.reg_r0<< 8 | (value & 0xFF)) & self.byte_mask
-    elif target == 2:
-      self.reg_r1 = (self.reg_r1<< 8 | (value & 0xFF)) & self.byte_mask
-    elif target == 3:
-      self.reg_r2 = (self.reg_r2<< 8 | (value & 0xFF)) & self.byte_mask
+      self.reg_r2 = value & self.register_mask
 
   def get_register(self, reg):
     if reg == 0:
@@ -94,42 +81,24 @@ class MINMAX4():
     
   def set_port(self, port, value):
     if port == 0:
-      self.port_A = value & self.byte_mask
+      self.port_A = value & self.register_mask
       self.port_A_update = True
       self.output_cb(0, self.port_A)
     elif port == 1:
-      self.port_B = value & self.byte_mask
+      self.port_B = value & self.register_mask
       self.port_B_update = True
       self.output_cb(1, self.port_B)
     elif port == 2:
-      self.port_C = value & self.byte_mask
+      self.port_C = value & self.register_mask
       self.port_C_update = True
       self.output_cb(2, self.port_C)
     elif port == 3:
-      self.port_D = value & self.byte_mask
+      self.port_D = value & self.register_mask
       self.port_D_update = True
       self.output_cb(3, self.port_D)
 
   def set_output_callback(self, callback: callable):
     self.output_cb = callback
-  
-  def push_port(self, port, value):
-    if port == 0:
-      self.port_A = (self.port_A << 8 | (value & 0xFF)) & self.byte_mask
-      self.port_A_update = True
-      self.output_cb(0, self.port_A)
-    elif port == 1:
-      self.port_B = (self.port_B << 8 | (value & 0xFF)) & self.byte_mask
-      self.port_B_update = True
-      self.output_cb(1, self.port_B)
-    elif port == 2:
-      self.port_C = (self.port_C << 8 | (value & 0xFF)) & self.byte_mask
-      self.port_C_update = True
-      self.output_cb(2, self.port_C)
-    elif port == 3:
-      self.port_D = (self.port_D << 8 | (value & 0xFF)) & self.byte_mask
-      self.port_D_update = True
-      self.output_cb(3, self.port_D)
   
   def get_port(self, port):
     if port == 0:
@@ -142,7 +111,7 @@ class MINMAX4():
       return self.port_D
     
   def read_memory(self, address) -> int:
-    if address < 0 or address > self.byte_mask:
+    if address < 0 or address > self.register_mask:
       raise ValueError("Address out of range")
     elif(address not in self.ROM):
       return(0x00)
@@ -150,15 +119,15 @@ class MINMAX4():
       return self.ROM[address]
   
   def write_memory(self, address, value):
-    if address < 0 or address >= self.byte_mask:
+    if address < 0 or address >= self.register_mask:
       raise ValueError("Address out of range")
     self.ROM[address] = bytes([value & 0xFF])
   
   def advence_pc(self, offset = 1):
-    if(offset + self.reg_pc > self.byte_mask):
+    if(offset + self.reg_pc > self.register_mask):
       self.halt = True
     else:
-      self.reg_pc = (self.reg_pc + offset) & self.byte_mask
+      self.reg_pc = (self.reg_pc + offset) & self.register_mask
 
   def tick(self):
     #...
@@ -180,7 +149,7 @@ class MINMAX4():
       # MOV
       case 0x1:
         if(arg2 == 0x0):
-          self.push_target(arg1, self.read_memory(self.reg_pc))
+          self.set_target(arg1, self.read_memory(self.reg_pc))
           self.advence_pc()
         else:
           self.set_target(arg1, self.get_register(arg2))
@@ -189,7 +158,7 @@ class MINMAX4():
       case 0x2:
         _offset = self.get_register(arg2)
         _adrs = self.read_memory(self.reg_pc)
-        self.push_target(arg1, self.read_memory(_offset + _adrs))
+        self.set_target(arg1, self.read_memory(_offset + _adrs))
         self.advence_pc()
       #---------------------------------------------------------------
       # STR
@@ -208,11 +177,11 @@ class MINMAX4():
         else:
           _b = self.get_register(arg2)
         _c = _a + _b
-        if(_c > self.byte_mask):
+        if(_c > self.register_mask):
           self.carry_flag = True
         else:
           self.carry_flag = False
-        self.set_target(arg1, _c & self.byte_mask)
+        self.set_target(arg1, _c & self.register_mask)
       #----------------------------------------------------------------
       # SUB
       case 0x5:
@@ -224,11 +193,11 @@ class MINMAX4():
           _b = self.get_register(arg2)
         _c = _a - _b
         if(_c < 0):
-          _c = self.byte_mask + _c + 1
+          _c = self.register_mask + _c + 1
           self.carry_flag = True
         else:
           self.carry_flag = False
-        self.set_target(arg1, _c & self.byte_mask)
+        self.set_target(arg1, _c & self.register_mask)
       #----------------------------------------------------------------
       # AND
       case 0x6:
@@ -239,7 +208,7 @@ class MINMAX4():
         else:
           _b = self.get_register(arg2)
         _c = _a & _b
-        self.set_target(arg1, _c & self.byte_mask)
+        self.set_target(arg1, _c & self.register_mask)
       #----------------------------------------------------------------
       # OR
       case 0x7:
@@ -250,7 +219,7 @@ class MINMAX4():
         else:
           _b = self.get_register(arg2)
         _c = _a | _b
-        self.set_target(arg1, _c & self.byte_mask)
+        self.set_target(arg1, _c & self.register_mask)
       #----------------------------------------------------------------
       # XOR
       case 0x8:
@@ -261,13 +230,13 @@ class MINMAX4():
         else:
           _b = self.get_register(arg2)
         _c = _a ^ _b
-        self.set_target(arg1, _c & self.byte_mask)
+        self.set_target(arg1, _c & self.register_mask)
       #----------------------------------------------------------------
       # INV
       case 0x9:
         _a = self.get_register(arg1)
         _c = ~_a
-        self.set_target(arg1, _c & self.byte_mask)
+        self.set_target(arg1, _c & self.register_mask)
       #----------------------------------------------------------------
       # ROT
       case 0xA:
@@ -277,8 +246,8 @@ class MINMAX4():
           self.advence_pc()
         else:
           _b = self.get_register(arg2)
-        _c = (_a << _b) | (_a >> (self.byte_length*8 - _b))
-        self.set_target(arg1, _c & self.byte_mask)
+        _c = (_a << _b) | (_a >> (self.register_size*8 - _b))
+        self.set_target(arg1, _c & self.register_mask)
       #----------------------------------------------------------------
       # BRC
       case 0xB:
@@ -293,7 +262,7 @@ class MINMAX4():
             offset =  offset - 256 if offset > 127 else offset
             self.advence_pc()
           else:
-            self.reg_pc = self.get_register(arg2) & self.byte_mask
+            self.reg_pc = self.get_register(arg2) & self.register_mask
         else:
           if(arg2 == 0x0):
             self.advence_pc()
@@ -316,7 +285,7 @@ class MINMAX4():
       # OUT
       case 0xF:
         if(arg2 == 0x0):
-          self.push_port(arg1, self.read_memory(self.reg_pc))
+          self.set_port(arg1, self.read_memory(self.reg_pc))
           self.advence_pc()
         else:
           self.set_port(arg1, self.get_register(arg2))

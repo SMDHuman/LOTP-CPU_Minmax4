@@ -11,7 +11,7 @@
 <jump <name> psh r2, mov r2 name, mov pc r2>
 <land <name> name: pop r2>
 
-<call8 <sub_name>
+<call <sub_name>
   mov r2 _HERE_
   add r2 8
   psh r2

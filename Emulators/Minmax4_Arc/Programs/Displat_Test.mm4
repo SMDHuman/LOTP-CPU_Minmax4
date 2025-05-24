@@ -11,7 +11,7 @@ halt
 mov r2 _y, psh r2 ; Y
 mov r2 _x, psh r2 ; X
 mov r2 _color, psh r2 ; Color
-call8 DISPLAY_PUT_AT
+call DISPLAY_PUT_AT
 >
 
 ; args: y, x, color

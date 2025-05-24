@@ -1,5 +1,5 @@
 # LOTP-CPU_Minmax4
-A Simple 8 bit RISC-like CPU with expandable data bus. It executes every instruction in 1 clock pulse and every instruction occupies 1 or 2 bytes in memory, based on if it loads immediate value.
+A Simple 8 bit, 1 instruction per pulse CPU with expandable data bus. It executes every instruction in 1 clock pulse and every instruction occupies 1 or 2 bytes in memory, based on if it has immediate value. All registers can be bigger that 8 bit word size and must be equal as size. Stack word size is same as registers. 
 
 ## Instructions
 

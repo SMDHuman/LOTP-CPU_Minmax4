@@ -34,10 +34,10 @@ class Minmax4Arc:
     self.clock = pg.time.Clock()
     self.running = True
 
-    byte_code = assembler("Programs/Displat_Test.mm4", byte_lenght=2)
+    byte_code = assembler("Programs/Displat_Test.mm4")
     
     print("Size of byte code: ", len(byte_code))
-    self.cpu = Minmax4EMU.MINMAX4()
+    self.cpu = Minmax4EMU.MINMAX4(register_size = 2)
     self.cpu.load_bytes(byte_code)
     self.cpu.set_output_callback(self.handle_cpu_outputs)
 
@@ -56,7 +56,7 @@ class Minmax4Arc:
     # Log the output to the console
     timeinfo = datetime.datetime.now().strftime('%H:%M:%S')
     millis = int(round(time.time() * 1000)) % 1000
-    #print(f"{timeinfo}.{millis} - Port: {port}, Value: {value}")
+    print(f"{timeinfo}.{millis} - Port: {port}, Value: {value}")
 
     # Handle the output based on the port
     if(port == 1):
@@ -72,7 +72,7 @@ class Minmax4Arc:
       color = self.display_lower_input & 0x0F
       x = ((value & 0x3) << 4) | ((self.display_lower_input & 0xF0) >> 4)
       y = value >> 2
-      #print(f"X: {x}, Y: {y}, Color: {color}")
+      print(f"X: {x}, Y: {y}, Color: {color}")
       self.display.set_at((x, y), self.display_pallet[color])
       self.win.blit(pg.transform.scale(self.display, self.win.get_size()), (0, 0))    
       pg.display.flip()
@@ -84,7 +84,7 @@ class Minmax4Arc:
       self.handle_events()
       if(not self.cpu.halt):
         self.cpu.tick()
-        print(self.cpu.reg_pc)
+        #print(self.cpu.reg_pc)
         if(self.cpu.halt):
           print("CPU halted")
       #self.win.fill((0, 0, 0))
