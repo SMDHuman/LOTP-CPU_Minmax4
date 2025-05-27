@@ -1,5 +1,5 @@
 # LOTP-CPU_Minmax4
-A Simple 8 bit, 1 instruction per pulse CPU with expandable data bus. It executes every instruction in 1 clock pulse and every instruction occupies 1 or 2 bytes in memory, based on if it has immediate value. All registers can be bigger that 8 bit word size and must be equal as size. Stack word size is same as registers. 
+A Simple 8 bit, 1 instruction per pulse CPU with expandable data bus. It executes every instruction in 1 clock pulse and every instruction occupies 1 or 2 bytes in memory, based on if it has immediate value. All registers can be bigger that 8 bit word size and must be equal as size. Stack word size is same as registers. has 16 bit program counter.
 
 ## Instructions
 
@@ -22,7 +22,7 @@ A Simple 8 bit, 1 instruction per pulse CPU with expandable data bus. It execute
 | XOR  | 8 | target    | register    | Optional   | Bitwise xor operation with target and register or immediate data |
 | INV  | 9 | target    | None        | No         | Bitwise not operation on target |
 | ROT  | A | target    | register    | Optional   | Rotate bits to left given ammount by register or immediate data |
-| BRC  | B | condition | register    | Optional   | If condition is true, jump to a address register pointed or make relative jump |
+| BRC  | B | condition | register    | Optional   | If condition is true, makes relative jump |
 | PSH  | C | target    | None        | No         | Push target to stack   |
 | POP  | D | target    | None        | No         | Pop stack to target   |
 | IN   | E | target    | port        | No         | Set target value with selected port |
