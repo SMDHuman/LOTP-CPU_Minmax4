@@ -1,5 +1,5 @@
-# LOTP-CPU_Minmax4
-A Simple 8 bit, 1 instruction per pulse CPU with expandable data bus. It executes every instruction in 1 clock pulse and every instruction occupies 1 or 2 bytes in memory, based on if it has immediate value. All registers can be bigger that 8 bit word size and must be equal as size. Stack word size is same as registers. has 16 bit program counter.
+# LOTP-CPU_Minmax4.5
+A Simple 8 bit, 1 instruction per pulse CPU. It executes every instruction in 1 clock pulse and every instruction occupies 1 or 2 bytes in memory, based on if it has immediate value. has 16 bit program counter.
 
 ## Instructions
 
@@ -9,44 +9,30 @@ A Simple 8 bit, 1 instruction per pulse CPU with expandable data bus. It execute
 |  [0:3]      | [4:5]     | [6:7] | [8:15]  |
 
 ### Description
-| Name | Opcode | Arg A | Arg B | Extra Data Byte | Description |
-|------|---|-----------|-------------|------------|-------------|
-| NOP  | 0 | None      | None        | No         | No operation |
-| MOV  | 1 | target    | register    | Optional   | Move data register to register, or push 1 byte data to a register |
-| LOD  | 2 | target    | register    | Yes        | Load to target from ram using register as pointer + offset |
-| STR  | 3 | target    | register    | Yes        | Store target to ram using register as pointer + offset |
-| ADD  | 4 | target    | register    | Optional   | Add target with register or immediate data and store to target |
-| SUB  | 5 | target    | register    | Optional   | Subtract register or immediate data from target and store to target |
-| AND  | 6 | target    | register    | Optional   | Bitwise and operation with target and register or immediate data |
-| OR   | 7 | target    | register    | Optional   | Bitwise or operation with target and register or immediate data |
-| XOR  | 8 | target    | register    | Optional   | Bitwise xor operation with target and register or immediate data |
-| INV  | 9 | target    | None        | No         | Bitwise not operation on target |
-| ROT  | A | target    | register    | Optional   | Rotate bits to left given ammount by register or immediate data |
-| BRC  | B | condition | register    | Optional   | If condition is true, makes relative jump |
-| PSH  | C | target    | None        | No         | Push target to stack   |
-| POP  | D | target    | None        | No         | Pop stack to target   |
-| IN   | E | target    | port        | No         | Set target value with selected port |
-| OUT  | F | port      | register    | Optional   | Set output value with a register value or immediate data |
-
-> **Special Use Cases:**
-> - Relative jump with range of [-128, 127] 
->   ```
->   MOV PC 'value'
->   ```
-> - Jumping to last address of the memory will make the cpu halt
->   ``` 
->   MOV R0 0  ; Set Register 0 to value 0
->   INV R0    ; Inverse all bits to make the value as big as it can 
->   MOV PC R0 ; Jump to there
->   ```
-> - Unlike other operations, `PSH` instruction can read Program Counter register
-
+| Name | Opcode | Arg A | Arg B | Extra Data Byte |Def Val| Description |
+|------|---|-----------|-------------|------------|-------|-------------|
+| HLT  | 0 | X         | X           | No         |  0    | Halt the cpu clock to stop |
+| MOV  | 1 | target    | register    | Optional   |  0    | Move data register to register, or push 1 byte data to a register |
+| LOD  | 2 | target    | register    | Optional   |  0    | Load to target from memory using $YX registers as pointer + offset |
+| STR  | 3 | target    | register    | Optional   |  0    | Store target to memory using $YX registers as pointer + offset |
+| ADD  | 4 | target    | register    | Optional   |  1    | Add target with register or immediate data and store to target |
+| SUB  | 5 | target    | register    | Optional   |  1    | Subtract register or immediate data from target and store to target |
+| AND  | 6 | target    | register    | Optional   |  128  | Bitwise and operation with target and register or immediate data |
+| OR   | 7 | target    | register    | Optional   |  0    | Bitwise or operation with target and register or immediate data |
+| XOR  | 8 | target    | register    | Optional   |  255  | Bitwise xor operation with target and register or immediate data |
+| ROT  | 9 | target    | register    | Optional   |  1    | Rotate bits to left given ammount by register or immediate data |
+| JMP  | A | X         | register    | Optional   |  0    | Set PC to $YX +  Offset|
+| BRC  | B | condition | register    | Optional   |  2    | If condition is true, makes relative jump |
+| PSH  | C | target    | X           | No         |  255  | Push target to memory at SP as rightmost and 255 as leftmost|
+| POP  | D | target    | X           | No         |  255  | Pop memory to target at SP as rightmost and 255 as leftmost|
+| IN   | E | target    | port        | No         |  X    | Set target value with selected port |
+| OUT  | F | port      | register    | Optional   |  0    | Set output value with a register value or immediate data |
 
 ### Registers and Arguments
 
 | Name | 00 | 01 | 10 | 11 |
 |------|---|---|---|---|
-| target | `Program Counter` | `R0` | `R1` | `R2` |
-| registers | `Immediate` | `R0` | `R1` | `R2` |
-| condition | `Carry Flag` | `R0 == 0` | `!Carry Flag` | `R0 != 0` |
+| target | `R0` | `R1` | `X` | `Y` |
+| registers | `R0` | `R1` | `Immediate` | `Default Value` |
+| condition | `Carry Flag` | `Overflow Flag` | `R0 == 0` | `R0 == 255` |
 | port | `A` | `B` | `C` | `D` |
