@@ -1,0 +1,16 @@
+_x = 5
+{
+  loop:
+  _y = 3
+  mov r0 _y
+  mov r1 5
+  str r0 dfv
+  mov x 1 
+  lod r1 dfv
+  brc eqz loop
+  brc ovf end 
+}
+
+add r0 r1
+end:
+hlt

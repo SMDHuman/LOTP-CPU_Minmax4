@@ -299,14 +299,15 @@ class Token_Reader:
 #------------------------------------------------------------------------------
 def generate_bytes(tokens: list[Token]) -> bytearray:
   # Constants
-  instructions = {"NOP":0, "MOV":1, "LOD":2, "STR":3, "ADD":4, 
+  instructions = {"HLT":0, "MOV":1, "LOD":2, "STR":3, "ADD":4, 
                   "SUB":5, "AND":6, "OR":7, "XOR":8, "ROT":9, 
                   "JMP":10, "BRC":11, "PSH":12, "POP":13, "IN":14, "OUT":15}
   constants: dict[str, list[int]] = {}
   constant_levels: dict[str, int] = {}
   arg_consts: dict[str, list[int]] = {"R0": 0, "R1": 1, "X": 2, "Y": 3, 
-                                     "CF": 0, "VF": 1, "EQZ": 2, "EQF": 3,
-                                     "A": 0, "B": 1, "C": 2, "D": 3}
+                                     "CF": 0, "OVF": 1, "EQZ": 2, "EQF": 3,
+                                     "A": 0, "B": 1, "C": 2, "D": 3,
+                                     "DFV": 3}
   branches: dict[str, list[int]] = {}
   branches_fill_later: dict[int, str] = {}
   relative_branches_fill_later: dict[int, str] = {}
@@ -443,10 +444,11 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
               byte |= (arg_consts[tokens.next().word.upper()] << 6)
           elif(header.word.upper() == "BRC"):
             if(tokens.current().word in branches):
-              if(branches[tokens.next().word] == -1):
-                relative_branches_fill_later[tokens.next().word] = len(ROM)
+              if(branches[tokens.current().word] == -1):
+                relative_branches_fill_later[len(ROM)] = tokens.current().word
+                values = [0]
               else:
-                diff = branches[tokens.next().word] - len(ROM)
+                diff = branches[tokens.current().word] - len(ROM)
                 if(diff < -128 or diff > 127):
                   error(f"Branch '{tokens.current().word}' out of range at line {tokens.current().line}.")
                 if(diff < 0):
@@ -455,6 +457,7 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
             elif(tokens.current().type == "VALUE"):
               value = eval_values(tokens)[0]
               values += [value & 0xFF]
+            tokens.next()
           else:
             if(tokens.current().word.upper() in arg_consts):
               byte |= (arg_consts[tokens.next().word.upper()] << 6)
@@ -481,6 +484,16 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
     value = split_bytes(branches[branches_fill_later[branch]], [1, BYTE_LENGHT][AUTOGEN_BYTEFILL])[::-1]
     for i in range([1, BYTE_LENGHT][AUTOGEN_BYTEFILL]):
       ROM[branch+(i*2)+1] = value[i]
+
+  for branch in relative_branches_fill_later:
+    #...
+    diff = branches[relative_branches_fill_later[branch]] - branch
+    if(diff < -128 or diff > 127):
+      error(f"Branch '{branch}' out of range at line {tokens.current().line}.")
+    if(diff < 0):
+      diff = 256 + diff
+    print(diff)
+    ROM[branch+1] = diff & 0xFF
   #...
   if(DEBUG_MODE):
     # print rom in hex format with addresses
@@ -499,6 +512,7 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
 
     print("Branches: ", branches)
     print("Branches to fill later: ", branches_fill_later)
+    print("Relative Branches to fill later: ", relative_branches_fill_later)
   #...
   return(ROM)
 
