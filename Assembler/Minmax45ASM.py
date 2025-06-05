@@ -309,6 +309,7 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
                                      "DFV": 3}
   branches: dict[str, list[int]] = {}
   branches_fill_later: dict[int, str] = {}
+  branches_fill_later_indexed: dict[int, int] = {}
   relative_branches_fill_later: dict[int, str] = {}
 
   scope_level = 0
@@ -384,7 +385,10 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
     if(tokens.current().type == "INDEX"):
       tokens.next()
       index = eval_values(tokens)[0]
+      if(tokens.peek(-1).word in branches_fill_later):
+        branches_fill_later_indexed[len(ROM)] = index
       if(index >= len(values)):
+        return([0])
         error(f"Index out of range at line {tokens.current().line}.")
       return([values[index]])
     #...

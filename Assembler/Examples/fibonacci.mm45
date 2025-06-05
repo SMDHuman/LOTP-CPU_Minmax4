@@ -1,0 +1,49 @@
+mov x _start#0
+mov y _start#1
+jmp dfv
+
+var var_a
+var var_b
+var var_c
+
+_start:
+
+  ; c = a + b
+    load r0 var_a
+    load r1 var_b
+    add r0 r1
+    store r0 var_c
+  
+  out a r0
+  
+  ; b -> a, c -> b
+    load r0 var_b
+    store r0 var_a
+    load r0 var_c
+    store r0 var_b
+
+  ; If carry flag set, exit
+  brc cf exit
+
+  ; loop back
+    mov x _start#0
+    mov y _start#1
+    jmp dfv
+
+exit:
+  hlt
+
+<var <var_name>
+var_name: hlt>
+
+<load <reg> <var_name>
+mov x var_name#0
+mov y var_name#1
+lod reg dfv
+>
+
+<store <reg> <var_name>
+mov x var_name#0
+mov y var_name#1
+str reg dfv
+>

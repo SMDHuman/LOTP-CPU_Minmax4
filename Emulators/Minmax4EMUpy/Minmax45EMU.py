@@ -291,7 +291,8 @@ if( __name__ == "__main__"):
   mm4 = MINMAX4(sys.argv[1] if len(sys.argv) > 1 else None)
   while not mm4.halt_flag:
     mm4.tick()
-    print(f"PC: {mm4.pc:04X}, R0: {mm4.r0:04X}, R1: {mm4.r1:04X}, R2: {mm4.x:04X}, R3: {mm4.y:04X}, CF: {mm4.carry_flag}, OF: {mm4.overflow_flag}")
+    print('_' * 40)
+    print(f"PC: {mm4.pc:04X}, R0: {mm4.r0:04X}, R1: {mm4.r1:04X}, X: {mm4.x:04X}, Y: {mm4.y:04X}, CF: {mm4.carry_flag}, OF: {mm4.overflow_flag}")
     if(mm4.A_update):
       print(f"Port A: {mm4.A}, {chr(mm4.A)}")
     #input("Press Enter to continue...")
