@@ -22,14 +22,11 @@ class MINMAX4():
     self.register_size = 0
     self.ROM.clear()
     with open(input_file, 'rb') as f:
-      header = f.read(6)
+      header = f.read(5)
       if header[:4] != magic.encode():
         return(f"Error: Invalid file format. Expected '{magic}', got '{header.decode()}'")
       if header[4] != version:
         return(f"Error: Unsupported version. Expected {version}, got {header[4]}")
-      self.register_size = header[5]
-      if self.register_size < 1:
-        return(f"Error: Invalid byte length. Expected at least 1, got {self.register_size}")
     
       # Read the rest of the file and process it
       for i, data in enumerate(f.read()):
@@ -87,19 +84,23 @@ class MINMAX4():
     if port == 0:
       self.A = value & self.register_mask
       self.A_update = True
-      self.output_cb(0, self.A)
+      if(self.output_cb):
+        self.output_cb(0, self.A)
     elif port == 1:
       self.B = value & self.register_mask
       self.B_update = True
-      self.output_cb(1, self.B)
+      if(self.output_cb):
+        self.output_cb(1, self.B)
     elif port == 2:
       self.C = value & self.register_mask
       self.C_update = True
-      self.output_cb(2, self.C)
+      if(self.output_cb):
+        self.output_cb(2, self.C)
     elif port == 3:
       self.D = value & self.register_mask
       self.D_update = True
-      self.output_cb(3, self.D)
+      if(self.output_cb):
+        self.output_cb(3, self.D)
 
   def set_output_callback(self, callback: callable):
     self.output_cb = callback
@@ -125,7 +126,7 @@ class MINMAX4():
   def write_memory(self, address, value):
     if address < 0 or address > 0xffff:
       raise ValueError("Address out of range")
-    self.ROM[address] = bytes([value & 0xFF])
+    self.ROM[address] = value & 0xFF
   
   def advence_pc(self, offset = 1):
     self.pc = (self.pc + offset) & 0xffff
@@ -140,7 +141,7 @@ class MINMAX4():
       return self.get_register(arg)
 
   def tick(self):
-    if(self.half_flag): return 0
+    if(self.halt_flag): return 0
     #...
     self.A_update = False
     self.B_update = False
@@ -149,17 +150,24 @@ class MINMAX4():
     #...
     instruction = self.read_memory(self.pc) & 0x0F
     arg1, arg2 = (self.read_memory(self.pc) & 0x30) >> 4, (self.read_memory(self.pc) & 0xC0) >> 6
+    print(f"PC: {self.pc:04X}, Instruction: {instruction:02X}, Args: {arg1:02X}, {arg2:02X}")
     self.advence_pc()
     #...
     match instruction:
       #---------------------------------------------------------------
       # HLT
       case 0x0: 
-        self.half_flag = True
+        self.halt_flag = True
       #---------------------------------------------------------------
       # MOV
       case 0x1:
-        self.set_target(arg1, self.get_arg_b(arg2))
+        if(arg2 == 0x2):
+          self.set_target(arg1, self.read_memory(self.pc))
+          self.advence_pc()
+        elif(arg2 == 0x3):
+          self.set_target(arg1, 0)
+        else:
+          self.set_target(arg1, self.get_arg_b(arg2))
       #---------------------------------------------------------------
       # LOD
       case 0x2:
@@ -279,12 +287,11 @@ class MINMAX4():
         sys.exit(1)
     return 1
 
-
 if( __name__ == "__main__"):
-  mm4 = MINMAX4("../Assembler/Examples/Hello_World_db")
-  while not mm4.halt:
+  mm4 = MINMAX4(sys.argv[1] if len(sys.argv) > 1 else None)
+  while not mm4.halt_flag:
     mm4.tick()
-    #print(f"PC: {mm4.pc:04X}, R0: {mm4.r0:04X}, R1: {mm4.r1:04X}, R2: {mm4.r2:04X}, CF: {mm4.carry_flag}")
-    if(mm4.port_A_update):
-      print(f"Port A: {mm4.port_A}, {chr(mm4.port_A)}")
+    print(f"PC: {mm4.pc:04X}, R0: {mm4.r0:04X}, R1: {mm4.r1:04X}, R2: {mm4.x:04X}, R3: {mm4.y:04X}, CF: {mm4.carry_flag}, OF: {mm4.overflow_flag}")
+    if(mm4.A_update):
+      print(f"Port A: {mm4.A}, {chr(mm4.A)}")
     #input("Press Enter to continue...")

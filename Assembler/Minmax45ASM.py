@@ -34,7 +34,6 @@ def output_rom(rom: bytearray, output_file: str) -> None:
     # Write the magic number and version
     f.write(MAGIC.encode())
     f.write(struct.pack('B', VERSION))
-    f.write(BYTE_LENGHT.to_bytes(1, byteorder='little'))
     f.write(rom)
   #...
   print(f"Output file '{output_file}' created successfully.")
@@ -446,6 +445,7 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
             if(tokens.current().word in branches):
               if(branches[tokens.current().word] == -1):
                 relative_branches_fill_later[len(ROM)] = tokens.current().word
+                byte |= (0x2 << 6)
                 values = [0]
               else:
                 diff = branches[tokens.current().word] - len(ROM)
@@ -453,8 +453,10 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
                   error(f"Branch '{tokens.current().word}' out of range at line {tokens.current().line}.")
                 if(diff < 0):
                   diff = 256 + diff                  
+                byte |= (0x2 << 6)
                 values = [diff & 0xFF]
             elif(tokens.current().type == "VALUE"):
+              byte |= (0x2 << 6)
               value = eval_values(tokens)[0]
               values += [value & 0xFF]
             tokens.next()
@@ -462,6 +464,7 @@ def generate_bytes(tokens: list[Token]) -> bytearray:
             if(tokens.current().word.upper() in arg_consts):
               byte |= (arg_consts[tokens.next().word.upper()] << 6)
             else:
+              byte |= (0x2 << 6)
               values = eval_values(tokens)
         # Put the values in the byte array
         if(values):

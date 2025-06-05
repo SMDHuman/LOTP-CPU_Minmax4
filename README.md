@@ -30,7 +30,11 @@ A Simple 8 bit, 1 instruction per pulse CPU. It executes every instruction in 1 
 
 ### Registers and Arguments
 
-| Name | 00 | 01 | 10 | 11 |
+* R0, R1 : Data Registers
+* X, Y : Address Access Registers
+* A, B, C, D : Input/Output Bus Registers
+
+| Name / Value | 0 | 1 | 2 | 3 |
 |------|---|---|---|---|
 | target | `R0` | `R1` | `X` | `Y` |
 | registers | `R0` | `R1` | `Immediate` | `Default Value` |
