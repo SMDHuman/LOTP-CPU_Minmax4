@@ -1,0 +1,56 @@
+; All instructions writen as so the example. Argument number may vary
+'instruction exp'
+
+; Expressions always collaps into a byte or a argument
+
+; Constants store the value thats given to them
+'constant_name = exp'
+
+; You can open scopes for constants and branches to make it kinda local
+; variables for this scope.
+'''
+  y = 8
+  x = 3
+  {
+    x = 5
+    z = 0
+    ; x == 5 
+    ; y == 8 
+  }
+  ; x == 3 
+  ; z == None
+'''
+
+; Branches are constant values that store the current location of the memory 
+'branch_name:'
+
+; Values can be represented with different formats.  
+'''
+  12 
+  0b1100 
+  0xc 
+  constant_name
+  branch_name
+'''
+
+; All values interpreted as 1 byte. Even if they bigger then 1 byte, assembler read first 1 byte of it
+; If you want to use higher bytes of a value or a constant, use 'value # byte_num'
+'''
+  constant_name # 0
+  branch_name # 1
+  65535 # 1
+'''
+
+; Same thing can used with strings and lists
+'constant = "hello"'
+'constant = [72 101, 108, 108, 111]'
+'constant # 2' == 'l'
+
+; Macroes interpreted before the code. All macroes formated with 
+; Macro definitions different then constants cause they can't change values at assembly time. 
+; Macroes can take arguments as it is and use it in their macro definitions
+'''
+  <macro_name macro_def>
+  <'file_to_import_here.mm4'>
+  <macro_name <arg1> <arg2> <argN> macro_def arg1 arg2 argN>
+'''
